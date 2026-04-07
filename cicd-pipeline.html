@@ -99,35 +99,25 @@ svg text{font-family:'JetBrains Mono',monospace}
 <rect class="grp-bg" x="590" y="8" width="245" height="155" rx="12"/>
 <text x="712" y="30" text-anchor="middle" font-size="11" font-weight="600" fill="var(--grp-t)">REMOTE / PRODUCTION</text>
 
-<!-- Connection lines (above group backgrounds, below small nodes) -->
-<line id="c-feat-env" class="conn" x1="152" y1="295" x2="152" y2="220"/>
-<line id="c-env-grp-d" class="conn" x1="152" y1="190" x2="152" y2="163"/>
-<line id="c-feat-prev" class="conn" x1="432" y1="295" x2="432" y2="220"/>
-<line id="c-dev-env" class="conn" x1="432" y1="370" x2="432" y2="220"/>
-<line id="c-env-grp-p" class="conn" x1="432" y1="190" x2="432" y2="163"/>
-<line id="c-main-env" class="conn" x1="712" y1="445" x2="712" y2="220"/>
-<line id="c-env-grp-r" class="conn" x1="712" y1="190" x2="712" y2="163"/>
-<line id="c-main-expo" class="conn" x1="1025" y1="445" x2="1025" y2="375"/>
-<path id="c-expo-play" class="conn" d="M1010,355 L1010,260 Q1010,240 995,240 L960,240 Q945,240 945,220 L945,77"/>
-<path id="c-expo-app" class="conn" d="M1040,355 L1040,260 Q1040,240 1060,240 L1085,240 Q1105,240 1105,220 L1105,77"/>
+<!-- Connection wires (above group backgrounds, below small nodes) — also serve as particle routes -->
+<path id="c-up-d" class="conn" d="M152,295 L152,140 Q152,128 140,128 L106,128 Q94,128 94,116 L94,103"/>
+<path id="c-across-d" class="conn" d="M94,75 L209,75"/>
+<path id="c-down-d" class="conn" d="M209,103 L209,116 Q209,128 197,128 L164,128 Q152,128 152,140 L152,295"/>
+<path id="c-up-p-feat" class="conn" d="M432,295 L432,140 Q432,128 420,128 L386,128 Q374,128 374,116 L374,103"/>
+<path id="c-up-p" class="conn" d="M432,370 L432,140 Q432,128 420,128 L386,128 Q374,128 374,116 L374,103"/>
+<path id="c-across-p" class="conn" d="M374,75 L489,75"/>
+<path id="c-down-p-feat" class="conn" d="M489,103 L489,116 Q489,128 477,128 L444,128 Q432,128 432,140 L432,295"/>
+<path id="c-down-p" class="conn" d="M489,103 L489,116 Q489,128 477,128 L444,128 Q432,128 432,140 L432,370"/>
+<path id="c-up-r" class="conn" d="M712,445 L712,140 Q712,128 700,128 L666,128 Q654,128 654,116 L654,103"/>
+<path id="c-across-r" class="conn" d="M654,75 L769,75"/>
+<path id="c-down-r" class="conn" d="M769,103 L769,116 Q769,128 757,128 L724,128 Q712,128 712,140 L712,445"/>
+<line id="c-main-expo" class="conn" x1="1025" y1="445" x2="1025" y2="355"/>
+<path id="c-expo-play" class="conn" d="M1010,335 L1010,260 Q1010,240 995,240 L960,240 Q945,240 945,220 L945,77"/>
+<path id="c-expo-app" class="conn" d="M1040,335 L1040,260 Q1040,240 1060,240 L1085,240 Q1105,240 1105,220 L1105,77"/>
 
-<!-- Particle routing paths (invisible, used for getPointAtLength) -->
-<path id="r-up-d" class="route" d="M152,295 L152,140 Q152,128 140,128 L106,128 Q94,128 94,116 L94,103"/>
-<path id="r-across-d" class="route" d="M94,75 L209,75"/>
-<path id="r-down-d" class="route" d="M209,103 L209,116 Q209,128 197,128 L164,128 Q152,128 152,140 L152,295"/>
-<path id="r-up-p-feat" class="route" d="M432,295 L432,140 Q432,128 420,128 L386,128 Q374,128 374,116 L374,103"/>
-<path id="r-up-p" class="route" d="M432,370 L432,140 Q432,128 420,128 L386,128 Q374,128 374,116 L374,103"/>
-<path id="r-across-p" class="route" d="M374,75 L489,75"/>
-<path id="r-down-p-feat" class="route" d="M489,103 L489,116 Q489,128 477,128 L444,128 Q432,128 432,140 L432,295"/>
-<path id="r-down-p" class="route" d="M489,103 L489,116 Q489,128 477,128 L444,128 Q432,128 432,140 L432,370"/>
-<path id="r-up-r" class="route" d="M712,445 L712,140 Q712,128 700,128 L666,128 Q654,128 654,116 L654,103"/>
-<path id="r-across-r" class="route" d="M654,75 L769,75"/>
-<path id="r-down-r" class="route" d="M769,103 L769,116 Q769,128 757,128 L724,128 Q712,128 712,140 L712,445"/>
+<!-- Routing paths only needed for merge particle animations -->
 <path id="r-merge-fd" class="route" d="M355,295 L355,370"/>
 <path id="r-merge-dm" class="route" d="M640,370 L640,445"/>
-<path id="r-main-expo" class="route" d="M1025,445 L1025,355"/>
-<path id="r-expo-play" class="route" d="M1010,335 L1010,260 Q1010,240 995,240 L960,240 Q945,240 945,220 L945,77"/>
-<path id="r-expo-app" class="route" d="M1040,335 L1040,260 Q1040,240 1060,240 L1085,240 Q1105,240 1105,220 L1105,77"/>
 
 <!-- Service nodes -->
 <g id="n-sb-dev" class="n" style="--hi:var(--cyan)">
@@ -348,114 +338,114 @@ const S=[
   {p:'Setup',c:'var(--cyan)',t:'Run npm run env',
    d:'This single command: generates <code>.env.local</code>, starts Supabase (Postgres, Auth, Storage), seeds the vault, serves edge functions, and starts PowerSync.',
    hi:['n-sb-dev','n-ps-dev','n-env-dev'],vis:['b-feat','b-dev','b-main'],dim:[],
-   conns:['c-feat-env','c-env-grp-d'],
-   parts:{seq:['r-up-d','r-across-d','r-down-d'],cv:'--cyan'}},
+   conns:['c-up-d','c-across-d','c-down-d'],
+   parts:{seq:['c-up-d','c-across-d','c-down-d'],cv:'--cyan'}},
 
   {p:'Setup',c:'var(--cyan)',t:'Config files already in the repo',
    d:'Three files define the local environment:<br>• <code>supabase/config.toml</code> — DB, auth, API ports<br>• <code>supabase/config/powersync.yml</code> — sync, replication, JWT<br>• <code>supabase/config/sync-rules.yml</code> — per-user data routing',
    hi:['n-sb-dev','n-ps-dev'],vis:['b-feat','b-dev','b-main','n-env-dev'],dim:[],
-   conns:['c-feat-env','c-env-grp-d'],
-   parts:{seq:['r-up-d','r-across-d','r-down-d'],cv:'--cyan'}},
+   conns:['c-up-d','c-across-d','c-down-d'],
+   parts:{seq:['c-up-d','c-across-d','c-down-d'],cv:'--cyan'}},
 
   {p:'Setup',c:'var(--cyan)',t:'Run the app on a device',
    d:'<code>npm run android</code> or <code>npm run ios</code> (macOS only). Use emulators or physical devices. The app connects to local services via <code>.env.local</code>.',
    hi:['n-env-dev'],vis:['b-feat','b-dev','b-main','n-sb-dev','n-ps-dev'],dim:[],
-   conns:['c-feat-env','c-env-grp-d'],
-   parts:{seq:['r-up-d','r-across-d','r-down-d'],cv:'--cyan'}},
+   conns:['c-up-d','c-across-d','c-down-d'],
+   parts:{seq:['c-up-d','c-across-d','c-down-d'],cv:'--cyan'}},
 
   // Develop 5-7
   {p:'Develop',c:'var(--purple)',t:'Build your feature',
    d:'Write code on your feature branch. Test against local Supabase + PowerSync. Your branch should ideally <strong>only use the local dev environment</strong>.',
    hi:['b-feat'],vis:['b-dev','b-main','n-sb-dev','n-ps-dev','n-env-dev'],dim:[],
-   conns:['c-feat-env','c-env-grp-d'],
-   parts:{seq:['r-up-d','r-across-d','r-down-d'],cv:'--cyan'}},
+   conns:['c-up-d','c-across-d','c-down-d'],
+   parts:{seq:['c-up-d','c-across-d','c-down-d'],cv:'--cyan'}},
 
   {p:'Develop',c:'var(--purple)',t:'Test offline & spotty connections',
    d:'<code>npm run start:offline:android</code> tests without network. PowerSync queues writes locally and syncs on reconnect.<br>Use network conditioning tools for spotty connection testing.',
    hi:['b-feat','n-env-dev'],vis:['b-dev','b-main','n-sb-dev','n-ps-dev'],dim:[],
-   conns:['c-feat-env','c-env-grp-d'],
-   parts:{seq:['r-up-d','r-across-d','r-down-d'],cv:'--cyan'}},
+   conns:['c-up-d','c-across-d','c-down-d'],
+   parts:{seq:['c-up-d','c-across-d','c-down-d'],cv:'--cyan'}},
 
   {p:'Develop',c:'var(--purple)',t:'Special case: connect to preview',
    d:'In rare cases, connect your branch to the <strong>preview environment</strong> with <code>EXPO_PUBLIC_APP_VARIANT=preview</code>. First, pull the correct env vars:<br><code>eas env:pull preview</code><br>This regenerates <code>.env.local</code> with the preview environment\'s values. Similarly, <code>eas env:pull production</code> targets production.<br><span class="warn">⚠ Never connect a feature branch to production.</span>',
    hi:['n-sb-prev','n-ps-prev','n-env-prev'],vis:['b-feat','b-dev','b-main','n-sb-dev','n-ps-dev','n-env-dev'],dim:[],
-   conns:['c-feat-prev','c-env-grp-p','c-feat-env','c-env-grp-d'],
-   parts:{seq:['r-up-p-feat','r-across-p','r-down-p-feat'],cv:'--purple'}},
+   conns:['c-up-p-feat','c-across-p','c-down-p-feat','c-up-d','c-across-d','c-down-d'],
+   parts:{seq:['c-up-p-feat','c-across-p','c-down-p-feat'],cv:'--purple'}},
 
   // PR to Dev 8-13
   {p:'PR to Dev',c:'var(--pink)',t:'Push and create a pull request',
    d:'Push your branch and create a PR targeting <code>dev</code>. This triggers automated CI checks via GitHub Actions.',
    hi:['b-feat','n-pr-dev'],vis:['b-dev','b-main','n-sb-dev','n-ps-dev','n-env-dev'],dim:[],
-   conns:['c-feat-env','c-env-grp-d'],
+   conns:['c-up-d','c-across-d','c-down-d'],
    parts:{seq:['r-merge-fd'],cv:'--pink'}},
 
   {p:'PR to Dev',c:'var(--pink)',t:'CI checks run automatically',
    d:'Every PR runs: <strong>Format</strong> (Prettier), <strong>Typecheck</strong> (TSC), <strong>TruffleHog</strong> (secret scanning), <strong>Fingerprint</strong> (native build check).',
    hi:['n-pr-dev'],vis:['b-feat','b-dev','b-main','n-sb-dev','n-ps-dev','n-env-dev'],dim:[],
-   conns:['c-feat-env','c-env-grp-d'],
+   conns:['c-up-d','c-across-d','c-down-d'],
    parts:{seq:['r-merge-fd'],cv:'--pink'}},
 
   {p:'PR to Dev',c:'var(--pink)',t:'Conditional checks',
    d:'Changed <code>supabase/migrations/</code>? <strong>Migration validator</strong> runs. Changed <code>sync-rules.yml</code>? <strong>Sync rules validation</strong> via PowerSync API.<br>If the <strong>Expo fingerprint changed</strong> (i.e. native dependencies were modified), a bot automatically requests review from another team member — that approval is required before the PR can merge.',
    hi:['n-pr-dev'],vis:['b-feat','b-dev','b-main','n-sb-dev','n-ps-dev','n-env-dev'],dim:[],
-   conns:['c-feat-env','c-env-grp-d'],
+   conns:['c-up-d','c-across-d','c-down-d'],
    parts:{seq:['r-merge-fd'],cv:'--pink'}},
 
   {p:'PR to Dev',c:'var(--pink)',t:'Merge into dev',
    d:'All checks pass, PR approved — merge into dev. Your feature branch is done.',
    hi:['b-dev','n-merge-fd'],vis:['b-main','b-feat','n-sb-dev','n-ps-dev','n-env-dev'],dim:[],
-   conns:['c-feat-env','c-env-grp-d'],
+   conns:['c-up-d','c-across-d','c-down-d'],
    parts:null},
 
   {p:'PR to Dev',c:'var(--pink)',t:'Auto-deploy to preview',
    d:'On merge to dev: Supabase applies migrations to the <strong>preview branch DB</strong>. Sync rules auto-deploy to the preview PowerSync instance.',
    hi:['n-sb-prev','n-ps-prev','b-dev'],vis:['b-main','n-env-prev'],dim:['n-sb-dev','n-ps-dev','n-env-dev'],
-   conns:['c-dev-env','c-env-grp-p'],
-   parts:{seq:['r-up-p','r-across-p','r-down-p'],cv:'--purple'}},
+   conns:['c-up-p','c-across-p','c-down-p'],
+   parts:{seq:['c-up-p','c-across-p','c-down-p'],cv:'--purple'}},
 
   {p:'PR to Dev',c:'var(--pink)',t:'Never modify remote instances directly',
    d:'<span class="warn">⚠ Important:</span> Never change remote Supabase or PowerSync via their dashboards. All changes flow through <strong>migration files</strong> and <strong>sync-rules.yml</strong> in git.',
    hi:['n-sb-prev','n-ps-prev','n-sb-prod','n-ps-prod','n-noedit-sp','n-noedit-pp','n-noedit-sr','n-noedit-pr'],
    vis:['b-dev','b-main','n-env-prev','n-env-prod'],dim:[],
-   conns:['c-dev-env','c-env-grp-p','c-main-env','c-env-grp-r'],
+   conns:['c-up-p','c-across-p','c-down-p','c-up-r','c-across-r','c-down-r'],
    parts:null},
 
   // Ship 14-18
   {p:'Ship',c:'var(--green)',t:'Test together in preview',
    d:'Dev branch connects to the preview environment — a remote Supabase DB branch and PowerSync instance with <strong>no seeded data</strong>. Test how features behave closer to production.',
    hi:['b-dev','n-sb-prev','n-ps-prev'],vis:['b-main','n-env-prev'],dim:[],
-   conns:['c-dev-env','c-env-grp-p'],
-   parts:{seq:['r-up-p','r-across-p','r-down-p'],cv:'--purple'}},
+   conns:['c-up-p','c-across-p','c-down-p'],
+   parts:{seq:['c-up-p','c-across-p','c-down-p'],cv:'--purple'}},
 
   {p:'Ship',c:'var(--green)',t:'Coordinate the merge to main',
    d:'When the team is ready, coordinate a merge from dev → main. <strong>Everyone should be aware.</strong> Version bump in <code>package.json</code> + <code>app.config.ts</code> if significant (requires native rebuild).',
    hi:['b-dev','b-main','n-pr-main'],vis:['n-sb-prev','n-ps-prev','n-env-prev'],dim:[],
-   conns:['c-dev-env','c-env-grp-p'],
+   conns:['c-up-p','c-across-p','c-down-p'],
    parts:{seq:['r-merge-dm'],cv:'--green'}},
 
   {p:'Ship',c:'var(--green)',t:'PR checks pass, merge to main',
    d:'Same CI checks run on the dev → main PR. On merge, Supabase applies migrations to <strong>production DB</strong>. Sync rules deploy to <strong>production PowerSync</strong>.',
    hi:['b-main','n-sb-prod','n-ps-prod','n-merge-dm'],vis:['n-env-prod'],dim:['b-dev','n-sb-prev','n-ps-prev'],
-   conns:['c-main-env','c-env-grp-r'],
-   parts:{seq:['r-up-r','r-across-r','r-down-r'],cv:'--green'}},
+   conns:['c-up-r','c-across-r','c-down-r'],
+   parts:{seq:['c-up-r','c-across-r','c-down-r'],cv:'--green'}},
 
   {p:'Ship',c:'var(--green)',t:'Expo determines update type',
    d:'Expo checks the app fingerprint: <strong>OTA update</strong> (no version change, pushed directly) or <strong>native build</strong> (version bumped, new binary via EAS Build).',
    hi:['n-expo'],vis:['b-main','n-sb-prod','n-ps-prod','n-env-prod'],dim:[],
-   conns:['c-main-expo','c-main-env','c-env-grp-r'],
-   parts:{seq:['r-main-expo'],cv:'--green'}},
+   conns:['c-main-expo','c-up-r','c-across-r','c-down-r'],
+   parts:{seq:['c-main-expo'],cv:'--green'}},
 
   {p:'Ship',c:'var(--green)',t:'Submit to app stores',
    d:'EAS Submit sends builds to <strong>Google Play Store</strong> and <strong>Apple App Store</strong>. Submit for review in each store\'s dashboard. Review takes hours to days.',
    hi:['n-play','n-app'],vis:['b-main','n-expo','n-sb-prod','n-ps-prod','n-env-prod'],dim:[],
-   conns:['c-expo-play','c-expo-app','c-main-expo','c-main-env','c-env-grp-r'],
-   parts:{seq:['r-main-expo','r-expo-play'],cv:'--green',alt:['r-main-expo','r-expo-app']}},
+   conns:['c-expo-play','c-expo-app','c-main-expo','c-up-r','c-across-r','c-down-r'],
+   parts:{seq:['c-main-expo','c-expo-play'],cv:'--green',alt:['c-main-expo','c-expo-app']}},
 
   {p:'Ship',c:'var(--green)',t:'Release and announce',
    d:'Once both stores approve, <strong>release simultaneously</strong>. Post an announcement on <strong>Discord</strong> — notify users of the new version and what\'s included. The cycle is complete.',
    hi:['n-play','n-app'],vis:['b-main','n-expo','n-sb-prod','n-ps-prod','n-env-prod'],dim:[],
-   conns:['c-expo-play','c-expo-app','c-main-expo','c-main-env','c-env-grp-r'],
-   parts:{seq:['r-main-expo','r-expo-play'],cv:'--green',alt:['r-main-expo','r-expo-app']}},
+   conns:['c-expo-play','c-expo-app','c-main-expo','c-up-r','c-across-r','c-down-r'],
+   parts:{seq:['c-main-expo','c-expo-play'],cv:'--green',alt:['c-main-expo','c-expo-app']}},
 ];
 
 function buildDots(){
@@ -536,8 +526,8 @@ function fitDiagram(){
 // ── Init ──
 function init(){
   initCanvas();
-  ['r-up-d','r-across-d','r-down-d','r-up-p-feat','r-up-p','r-across-p','r-down-p-feat','r-down-p',
-   'r-up-r','r-across-r','r-down-r','r-merge-fd','r-merge-dm','r-main-expo','r-expo-play','r-expo-app'
+  ['c-up-d','c-across-d','c-down-d','c-up-p-feat','c-up-p','c-across-p','c-down-p-feat','c-down-p',
+   'c-up-r','c-across-r','c-down-r','r-merge-fd','r-merge-dm','c-main-expo','c-expo-play','c-expo-app'
   ].forEach(cachePath);
   buildDots();render();fitDiagram();
   window.addEventListener('resize',fitDiagram);

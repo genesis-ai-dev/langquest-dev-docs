@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LangQuest — Database Schema</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#08080e;--card:#12121e;--border:#1e1e38;--border-hi:#3a3a60;
+  --text:#d4d4e8;--text2:#8888a8;--text3:#4a4a6a;
+  --cyan:#22d3ee;--purple:#a78bfa;--green:#34d399;--pink:#f472b6;--amber:#fbbf24;--red:#f87171;--blue:#60a5fa;
+  --panel:#111119f0;--code-bg:#ffffff0c;
+  --path-dim:#ffffff18;--path-hi:#ffffff40;
+}
+body.light{
+  --bg:#f0f0f8;--card:#ffffff;--border:#d0d0e0;--border-hi:#a0a0c0;
+  --text:#1a1a30;--text2:#55557a;--text3:#9090a8;
+  --panel:#ffffffee;--code-bg:#0000000a;
+  --path-dim:#00000015;--path-hi:#00000030;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+.hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0;z-index:50;gap:12px}
+.hdr h1{font-size:1.05rem;font-weight:700}
+.hdr .sub{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--text3);text-transform:uppercase;letter-spacing:.12em;margin-top:2px}
+.hdr button{font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer}
+
+.tabbar{display:flex;flex-wrap:wrap;gap:6px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--bg);flex-shrink:0;max-height:120px;overflow-y:auto}
+.tab{font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;transition:all .2s;white-space:nowrap}
+.tab:hover{border-color:var(--border-hi);color:var(--text)}
+.tab.on{border-color:var(--pink);color:var(--pink);background:#f472b60a}
+
+.diagram-wrap{flex:1;display:flex;align-items:center;justify-content:center;overflow:auto;padding:12px;min-height:0}
+.diagram{position:relative;flex-shrink:0}
+.diagram svg{display:block;max-width:100%;height:auto}
+
+svg text{font-family:'JetBrains Mono',monospace}
+.tb{fill:var(--card);stroke:var(--border);stroke-width:1.5;rx:8}
+.tb-hi{stroke:var(--pink);stroke-width:2px}
+.lbl{font-size:10px;font-weight:600;fill:var(--text)}
+.lbl-sm{font-size:8px;fill:var(--text2)}
+.edge{stroke:var(--path-dim);stroke-width:2;fill:none;stroke-linecap:round}
+.edge.vis{stroke:var(--path-hi)}
+.grp{fill:#ffffff04;stroke:#ffffff12;stroke-width:1;rx:12}
+.grp-t{font-size:9px;fill:var(--text3);text-transform:uppercase;letter-spacing:.1em}
+
+.panel{border-top:1px solid var(--border);background:var(--panel);padding:12px 22px 14px;flex-shrink:0;backdrop-filter:blur(12px);display:flex;flex-direction:column;gap:6px}
+.dots{display:flex;align-items:center;justify-content:center;gap:4px;flex-wrap:wrap}
+.dot-group{display:flex;align-items:center;gap:3px;margin:0 6px}
+.dot-label{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--text3);margin-right:4px;text-transform:uppercase;letter-spacing:.06em}
+.dot{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--border);background:transparent;cursor:pointer;transition:all .2s;padding:0}
+.dot:hover{border-color:var(--text2)}
+.dot.cur{background:var(--pink);border-color:var(--pink)}
+.step-phase{font-family:'JetBrains Mono',monospace;font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em}
+.step-title{font-size:1.02rem;font-weight:700}
+.step-desc{font-size:.86rem;color:var(--text2);line-height:1.65}
+.step-desc code{font-family:'JetBrains Mono',monospace;font-size:.78rem;background:var(--code-bg);padding:2px 6px;border-radius:4px;color:var(--cyan)}
+.step-desc strong{color:var(--text);font-weight:600}
+.step-desc .muted{color:var(--text3);font-size:.82rem}
+.step-nav{display:flex;align-items:center;justify-content:space-between;margin-top:2px}
+.step-ctr{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--text3)}
+.step-btns{display:flex;gap:8px}
+.nbtn{font-family:'JetBrains Mono',monospace;font-size:.75rem;padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text2);cursor:pointer;transition:all .2s}
+.nbtn:hover{border-color:var(--border-hi);color:var(--text)}
+.nbtn:disabled{opacity:.3;pointer-events:none}
+.nbtn.pri{border-color:var(--pink);color:var(--pink)}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div>
+    <h1>Database Schema</h1>
+    <div class="sub">LangQuest · Postgres / Supabase</div>
+  </div>
+  <button type="button" onclick="toggleTheme()" id="themeBtn">☀ Light</button>
+</div>
+
+<div class="tabbar" id="tabbar" role="tablist" aria-label="Schema sections"></div>
+
+<div class="diagram-wrap">
+  <div class="diagram" id="diagramRoot"></div>
+</div>
+
+<div class="panel">
+  <div class="dots" id="dotNav"></div>
+  <div class="step-phase" id="stepPhase"></div>
+  <div class="step-title" id="stepTitle"></div>
+  <div class="step-desc" id="stepDesc"></div>
+  <div class="step-nav">
+    <span class="step-ctr" id="stepCtr"></span>
+    <div class="step-btns">
+      <button type="button" class="nbtn" id="prevBtn" onclick="goStep(curStep-1)">← Back</button>
+      <button type="button" class="nbtn pri" id="nextBtn" onclick="goStep(curStep+1)">Next →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let isLight=false;
+function toggleTheme(){
+  isLight=!isLight;document.body.classList.toggle('light',isLight);
+  document.getElementById('themeBtn').textContent=isLight?'☾ Dark':'☀ Light';
+  try{localStorage.setItem('lq-schema-theme',isLight?'light':'dark')}catch(e){}
+}
+(function(){try{if(localStorage.getItem('lq-schema-theme')==='light'){isLight=true;document.body.classList.add('light');document.getElementById('themeBtn').textContent='☾ Dark'}}catch(e){}})();
+
+// ── Section definitions: steps use { t:title, d:html, hi?: array of diagram node ids to highlight } ──
+const SECTIONS=[
+{
+  id:'primary',
+  label:'Primary chain',
+  phaseColor:'var(--cyan)',
+  svg:`<svg viewBox="0 0 920 220" width="920" height="220" xmlns="http://www.w3.org/2000/svg">
+<defs><filter id="glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<text x="460" y="22" text-anchor="middle" class="grp-t" style="font-family:JetBrains Mono;font-size:10px;fill:var(--text3)">Spine — content &amp; collaboration</text>
+<path class="edge vis" d="M118,110 L158,110"/>
+<path class="edge vis" d="M258,110 L298,110"/>
+<path class="edge vis" d="M398,110 L438,110"/>
+<path class="edge vis" d="M538,110 L578,110"/>
+<path class="edge vis" d="M678,110 L718,110"/>
+<rect id="n-project" class="tb" x="18" y="75" width="100" height="70" rx="8"/><text x="68" y="102" text-anchor="middle" class="lbl">project</text><text x="68" y="118" text-anchor="middle" class="lbl-sm">workspace</text>
+<rect id="n-quest" class="tb" x="158" y="75" width="100" height="70" rx="8"/><text x="208" y="102" text-anchor="middle" class="lbl">quest</text><text x="208" y="118" text-anchor="middle" class="lbl-sm">unit of work</text>
+<rect id="n-qal" class="tb" x="298" y="75" width="100" height="70" rx="8"/><text x="348" y="98" text-anchor="middle" class="lbl">quest_asset</text><text x="348" y="112" text-anchor="middle" class="lbl">_link</text>
+<rect id="n-asset" class="tb" x="438" y="75" width="100" height="70" rx="8"/><text x="488" y="102" text-anchor="middle" class="lbl">asset</text><text x="488" y="118" text-anchor="middle" class="lbl-sm">source row</text>
+<rect id="n-acl" class="tb" x="578" y="65" width="100" height="90" rx="8"/><text x="628" y="95" text-anchor="middle" class="lbl">asset_content</text><text x="628" y="109" text-anchor="middle" class="lbl">_link</text><text x="628" y="125" text-anchor="middle" class="lbl-sm">text / audio</text>
+<rect id="n-vote" class="tb" x="718" y="75" width="100" height="70" rx="8"/><text x="768" y="102" text-anchor="middle" class="lbl">vote</text><text x="768" y="118" text-anchor="middle" class="lbl-sm">feedback</text>
+<text x="460" y="200" text-anchor="middle" style="font-family:JetBrains Mono;font-size:8px;fill:var(--text3)">FK chain: project ← quest ← link → asset ← content_link; vote → asset</text>
+</svg>`,
+  steps:[
+    {t:'Overview: the spine',d:'Most user-facing data flows through <strong>project → quest → assets</strong>, with per-language lines in <code>asset_content_link</code> and community signal in <code>vote</code>. PowerSync often scopes rows via <code>download_profiles</code> on several tables.',hi:['n-project','n-quest','n-qal','n-asset','n-acl','n-vote']},
+    {t:'project',d:'A <strong>project</strong> is a bounded workspace: name, description, visibility (<code>private</code>, <code>visible</code>), optional <code>template</code> (unstructured, bible, fia), and metadata for ingestion. It is the root foreign key for quests, assets scoped to the project, and closure rollups.',hi:['n-project']},
+    {t:'quest',d:'A <strong>quest</strong> groups work inside a project (<code>project_id</code>). Quests can nest via <code>parent_id</code>. They define what translators see as a unit—linked to assets through <code>quest_asset_link</code>.',hi:['n-quest']},
+    {t:'quest_asset_link',d:'The <strong>quest_asset_link</strong> join table (composite PK <code>quest_id, asset_id</code>) attaches assets to quests. Visibility and sync can be controlled per link; it is the many-to-many between quest workflow and the asset catalog.',hi:['n-qal']},
+    {t:'asset',d:'An <strong>asset</strong> is the canonical row for a source item (or derived line): <code>content_type</code> distinguishes source / translation / transcription, <code>parent_id</code> and <code>source_asset_id</code> support hierarchies and derivatives, and <code>project_id</code> ties assets to a project. Older <code>source_language_id</code> may coexist with languoid-based modeling elsewhere.',hi:['n-asset']},
+    {t:'asset_content_link',d:'Each <strong>asset_content_link</strong> stores the actual text and optional <code>audio</code> JSON for a given asset, with <code>languoid_id</code> for the language line, <code>order_index</code> for ordering, and <code>text_search_vector</code> for search. This is where translated or transcribed content lives—parallel to legacy <code>translation</code> rows.',hi:['n-acl']},
+    {t:'vote',d:'A <strong>vote</strong> records feedback on an <code>asset_id</code> (<code>polarity</code>, optional <code>comment</code>). The schema includes a <code>translation_id</code> column for historical alignment; new work centers on assets and <code>asset_content_link</code>. Votes participate in closure rollups as counts of community signal.',hi:['n-vote']}
+  ]
+},
+{
+  id:'membership',
+  label:'Membership',
+  phaseColor:'var(--purple)',
+  svg:`<svg viewBox="0 0 720 240" width="720" height="240" xmlns="http://www.w3.org/2000/svg">
+<text x="360" y="22" text-anchor="middle" style="font-family:JetBrains Mono;font-size:10px;fill:var(--text3);text-transform:uppercase;letter-spacing:.1em">Users &amp; project access</text>
+<path class="edge vis" d="M200,120 L250,120"/><path class="edge vis" d="M390,120 L440,120"/>
+<path class="edge vis" d="M200,160 L320,200"/><path class="edge vis" d="M440,160 L520,200"/>
+<rect id="m-profile" class="tb" x="80" y="85" width="120" height="72" rx="8"/><text x="140" y="112" text-anchor="middle" class="lbl">profile</text><text x="140" y="128" text-anchor="middle" class="lbl-sm">auth.users extension</text>
+<rect id="m-ppl" class="tb" x="250" y="85" width="140" height="72" rx="8"/><text x="320" y="112" text-anchor="middle" class="lbl">profile_project_link</text><text x="320" y="128" text-anchor="middle" class="lbl-sm">owner | member</text>
+<rect id="m-proj" class="tb" x="440" y="85" width="100" height="72" rx="8"/><text x="490" y="112" text-anchor="middle" class="lbl">project</text>
+<rect id="m-invite" class="tb" x="80" y="175" width="120" height="52" rx="8"/><text x="140" y="200" text-anchor="middle" class="lbl">invite</text><text x="140" y="214" text-anchor="middle" class="lbl-sm">email, status</text>
+<rect id="m-request" class="tb" x="520" y="175" width="120" height="52" rx="8"/><text x="580" y="200" text-anchor="middle" class="lbl">request</text><text x="580" y="214" text-anchor="middle" class="lbl-sm">join request</text>
+</svg>`,
+  steps:[
+    {t:'Membership overview',d:'Access is modeled by <strong>profile</strong> plus <code>profile_project_link</code> for steady membership, with <code>invite</code> and <code>request</code> for inbound flows.',hi:['m-profile','m-ppl','m-proj','m-invite','m-request']},
+    {t:'profile',d:'<strong>profile</strong> mirrors <code>auth.users</code> (<code>id</code> PK + FK). It stores username, email, avatar, terms flags, and <code>ui_languoid_id</code> for UI language. Most other tables reference <code>profile(id)</code> for creators and actors.',hi:['m-profile']},
+    {t:'profile_project_link',d:'<strong>profile_project_link</strong> is the join between profiles and projects with <code>membership</code> <code>owner</code> or <code>member</code>. Composite PK (<code>profile_id</code>, <code>project_id</code>). Used for RLS and sync visibility.',hi:['m-ppl','m-proj']},
+    {t:'invite',d:'<strong>invite</strong> rows represent invitations: sender and optional receiver profile, target <code>project_id</code>, email, <code>status</code> (pending, accepted, declined, withdrawn), <code>as_owner</code>, and a <code>count</code> field for batch semantics.',hi:['m-invite']},
+    {t:'request',d:'<strong>request</strong> is a user-initiated ask to join a project (<code>sender_profile_id</code>, <code>project_id</code>, <code>status</code>, <code>count</code>)—complementary to invites which are owner-driven.',hi:['m-request']}
+  ]
+},
+{
+  id:'languoid',
+  label:'Languoid / region',
+  phaseColor:'var(--green)',
+  svg:`<svg viewBox="0 0 880 300" width="880" height="300" xmlns="http://www.w3.org/2000/svg">
+<text x="440" y="20" text-anchor="middle" style="font-family:JetBrains Mono;font-size:10px;fill:var(--text3)">Glottolog-style languoids + geographic regions</text>
+<rect class="grp" x="20" y="40" width="400" height="115" rx="12"/><text x="40" y="58" style="font-family:JetBrains Mono;font-size:9px;fill:var(--text3)">Languoid</text>
+<rect id="lg-languoid" class="tb" x="40" y="70" width="90" height="68" rx="8"/><text x="85" y="100" text-anchor="middle" class="lbl">languoid</text>
+<rect id="lg-alias" class="tb" x="150" y="70" width="90" height="68" rx="8"/><text x="195" y="100" text-anchor="middle" class="lbl">languoid_alias</text>
+<rect id="lg-src" class="tb" x="260" y="70" width="90" height="68" rx="8"/><text x="305" y="100" text-anchor="middle" class="lbl">languoid_source</text>
+<rect id="lg-prop" class="tb" x="370" y="70" width="90" height="68" rx="8"/><text x="415" y="100" text-anchor="middle" class="lbl">languoid_property</text>
+<rect id="lg-lr" class="tb" x="290" y="155" width="110" height="58" rx="8"/><text x="345" y="182" text-anchor="middle" class="lbl">languoid_region</text>
+<rect class="grp" x="440" y="40" width="420" height="115" rx="12"/><text x="460" y="58" style="font-family:JetBrains Mono;font-size:9px;fill:var(--text3)">Region</text>
+<rect id="lg-region" class="tb" x="460" y="70" width="90" height="68" rx="8"/><text x="505" y="100" text-anchor="middle" class="lbl">region</text>
+<rect id="lg-ralias" class="tb" x="570" y="70" width="90" height="68" rx="8"/><text x="615" y="100" text-anchor="middle" class="lbl">region_alias</text>
+<rect id="lg-rsrc" class="tb" x="680" y="70" width="90" height="68" rx="8"/><text x="725" y="100" text-anchor="middle" class="lbl">region_source</text>
+<rect id="lg-rprop" class="tb" x="750" y="155" width="90" height="58" rx="8"/><text x="795" y="182" text-anchor="middle" class="lbl">region_property</text>
+<path class="edge vis" d="M345,138 L345,155"/><path class="edge vis" d="M505,138 L345,168"/>
+<rect id="lg-pll" class="tb" x="300" y="228" width="280" height="44" rx="8"/><text x="440" y="255" text-anchor="middle" class="lbl">project_language_link</text>
+<text x="440" y="288" text-anchor="middle" style="font-family:JetBrains Mono;font-size:8px;fill:var(--text3)">project × languoid × source | target</text>
+</svg>`,
+  steps:[
+    {t:'Languages &amp; places',d:'LangQuest uses a <strong>languoid</strong> tree (levels, parent links) and parallel <strong>region</strong> geography. <code>project_language_link</code> binds projects to source/target languoids for work.',hi:['lg-languoid','lg-region']},
+    {t:'project_language_link',d:'<strong>project_language_link</strong> has PK (<code>project_id</code>, <code>languoid_id</code>, <code>language_type</code>) where <code>language_type</code> is <code>source</code> or <code>target</code>. This replaces ad-hoc project language fields for sync-aware listings.',hi:['lg-pll']},
+    {t:'languoid',d:'<strong>languoid</strong> stores hierarchical language entities (<code>parent_id</code>), <code>level</code> enum, activation and <code>ui_ready</code>. Used by <code>asset_content_link.languoid_id</code>, profile UI language, and project language links.',hi:['lg-languoid']},
+    {t:'languoid_alias',d:'<strong>languoid_alias</strong> maps alternative names / labeling languoids to a subject languoid (<code>alias_type</code>, <code>source_names</code>) for search and display.',hi:['lg-alias']},
+    {t:'languoid_source &amp; languoid_property',d:'<strong>languoid_source</strong> records provenance (name, version, URL, unique id). <strong>languoid_property</strong> stores key/value facts attached to a languoid—extensible metadata without schema churn.',hi:['lg-src','lg-prop']},
+    {t:'languoid_region',d:'<strong>languoid_region</strong> links languoids to regions with flags like <code>majority</code>, <code>official</code>, <code>native</code>—where a language is spoken geographically.',hi:['lg-lr','lg-region']},
+    {t:'region',d:'<strong>region</strong> mirrors languoid’s tree idea for geography: <code>parent_id</code>, <code>level</code>, optional <code>geometry</code> flag.',hi:['lg-region']},
+    {t:'region_alias, region_source, region_property',d:'Same pattern as languoids: <strong>region_alias</strong> names via <code>label_languoid_id</code>, <strong>region_source</strong> for dataset provenance, <strong>region_property</strong> for arbitrary key/value metadata.',hi:['lg-ralias','lg-rsrc','lg-rprop']}
+  ]
+},
+{
+  id:'closure',
+  label:'Download profiles',
+  phaseColor:'var(--amber)',
+  svg:`<svg viewBox="0 0 640 200" width="640" height="200" xmlns="http://www.w3.org/2000/svg">
+<text x="320" y="24" text-anchor="middle" style="font-family:JetBrains Mono;font-size:10px;fill:var(--text3)">Precomputed subgraphs for offline / partial sync</text>
+<rect id="c-pc" class="tb" x="60" y="60" width="200" height="100" rx="8"/><text x="160" y="95" text-anchor="middle" class="lbl">project_closure</text><text x="160" y="112" text-anchor="middle" class="lbl-sm">per-project id sets + totals</text><text x="160" y="132" text-anchor="middle" class="lbl-sm">download_profiles[]</text>
+<rect id="c-qc" class="tb" x="380" y="60" width="200" height="100" rx="8"/><text x="480" y="95" text-anchor="middle" class="lbl">quest_closure</text><text x="480" y="112" text-anchor="middle" class="lbl-sm">per-quest id sets + totals</text><text x="480" y="132" text-anchor="middle" class="lbl-sm">download_profiles[]</text>
+<path class="edge vis" d="M260,110 L380,110"/>
+</svg>`,
+  steps:[
+    {t:'Why closures exist',d:'<strong>project_closure</strong> and <strong>quest_closure</strong> denormalize “everything needed” for a project or quest: JSON arrays of related row ids (assets, quests, votes, tags, language links, etc.) plus numeric rollups. Clients use <code>download_profiles</code> on these rows to decide which subset syncs.',hi:['c-pc','c-qc']},
+    {t:'project_closure',d:'Keyed by <code>project_id</code>. Tracks totals such as <code>total_quests</code>, <code>total_assets</code>, <code>total_translations</code>, <code>approved_translations</code> (naming reflects legacy translation counts; much content now lives in <code>asset_content_link</code>).',hi:['c-pc']},
+    {t:'quest_closure',d:'Keyed by <code>quest_id</code> with redundant <code>project_id</code> for filtering. Same pattern of embedded id arrays and per-quest translation rollups—optimized for “show me this quest’s footprint” without deep joins on device.',hi:['c-qc']}
+  ]
+},
+{
+  id:'cloning',
+  label:'Cloning',
+  phaseColor:'var(--red)',
+  svg:`<svg viewBox="0 0 720 200" width="720" height="200" xmlns="http://www.w3.org/2000/svg">
+<text x="360" y="22" text-anchor="middle" style="font-family:JetBrains Mono;font-size:10px;fill:var(--text3)">Bulk duplicate / migration jobs</text>
+<rect id="cl-job" class="tb" x="280" y="55" width="160" height="88" rx="8"/><text x="360" y="88" text-anchor="middle" class="lbl">clone_job</text><text x="360" y="105" text-anchor="middle" class="lbl-sm">status: queued…failed</text><text x="360" y="125" text-anchor="middle" class="lbl-sm">root_project_id</text>
+<rect id="cl-mp" class="tb" x="40" y="60" width="100" height="52" rx="8"/><text x="90" y="92" text-anchor="middle" class="lbl">map_project</text>
+<rect id="cl-mq" class="tb" x="40" y="125" width="100" height="52" rx="8"/><text x="90" y="157" text-anchor="middle" class="lbl">map_quest</text>
+<rect id="cl-ma" class="tb" x="580" y="60" width="100" height="52" rx="8"/><text x="630" y="92" text-anchor="middle" class="lbl">map_asset</text>
+<rect id="cl-mac" class="tb" x="580" y="125" width="100" height="52" rx="8"/><text x="630" y="157" text-anchor="middle" class="lbl">map_acl</text>
+<path class="edge vis" d="M140,86 L280,92"/><path class="edge vis" d="M140,151 L280,105"/><path class="edge vis" d="M440,92 L580,86"/><path class="edge vis" d="M440,105 L580,151"/>
+</svg>`,
+  steps:[
+    {t:'Cloning subschema',d:'Used when copying or restructuring content at scale: a <strong>clone_job</strong> tracks work from a <code>root_project_id</code>; <code>map_*</code> tables hold source→destination id mappings per job.',hi:['cl-job','cl-mp','cl-mq','cl-ma','cl-mac']},
+    {t:'clone_job',d:'<strong>clone_job</strong> has <code>status</code> (queued, running, done, failed), <code>options</code> and <code>progress</code> JSON blobs, and timestamps. If your product no longer surfaces clone UX, the tables may linger for one-off migrations—treat as operational, not core UX.',hi:['cl-job']},
+    {t:'map_project, map_quest, map_asset',d:'Each table stores (<code>job_id</code>, <code>src_id</code>, <code>dst_id</code>) to remap FKs after insert. <strong>map_acl</strong> extends the same pattern for access-control related ids during a job.',hi:['cl-mp','cl-mq','cl-ma']},
+    {t:'map_acl',d:'<strong>map_acl</strong> pairs with clone jobs to translate ACL-related identifiers consistently when duplicating structures—keep in sync with how your RLS policies reference ids.',hi:['cl-mac']}
+  ]
+},
+{
+  id:'secondary',
+  label:'Secondary',
+  phaseColor:'var(--blue)',
+  svg:`<svg viewBox="0 0 800 260" width="800" height="260" xmlns="http://www.w3.org/2000/svg">
+<text x="400" y="22" text-anchor="middle" style="font-family:JetBrains Mono;font-size:10px;fill:var(--text3)">Tags, exports, moderation, comms</text>
+<rect id="s-tag" class="tb" x="30" y="50" width="100" height="50" rx="8"/><text x="80" y="80" text-anchor="middle" class="lbl">tag</text>
+<rect id="s-qtl" class="tb" x="160" y="45" width="110" height="60" rx="8"/><text x="215" y="78" text-anchor="middle" class="lbl">quest_tag_link</text>
+<rect id="s-atl" class="tb" x="300" y="45" width="110" height="60" rx="8"/><text x="355" y="78" text-anchor="middle" class="lbl">asset_tag_link</text>
+<rect id="s-sug" class="tb" x="450" y="45" width="150" height="60" rx="8"/><text x="525" y="78" text-anchor="middle" class="lbl">languoid_link_suggestion</text>
+<rect id="s-eqa" class="tb" x="30" y="130" width="160" height="95" rx="8"/><text x="110" y="162" text-anchor="middle" class="lbl">export_quest_artifact</text><text x="110" y="180" text-anchor="middle" class="lbl-sm">feedback / distribution</text>
+<rect id="s-flag" class="tb" x="210" y="150" width="90" height="58" rx="8"/><text x="255" y="182" text-anchor="middle" class="lbl">flag</text>
+<rect id="s-rep" class="tb" x="320" y="145" width="100" height="68" rx="8"/><text x="370" y="178" text-anchor="middle" class="lbl">reports</text>
+<rect id="s-not" class="tb" x="440" y="150" width="110" height="58" rx="8"/><text x="495" y="182" text-anchor="middle" class="lbl">notification</text>
+<rect id="s-sub" class="tb" x="570" y="150" width="110" height="58" rx="8"/><text x="625" y="182" text-anchor="middle" class="lbl">subscription</text>
+<rect id="s-inbox" class="tb" x="700" y="150" width="70" height="58" rx="8"/><text x="735" y="182" text-anchor="middle" class="lbl">upload</text><text x="735" y="194" text-anchor="middle" class="lbl-sm">_inbox</text>
+</svg>`,
+  steps:[
+    {t:'Secondary features',d:'These tables support labeling, exports, trust/safety, and user notifications—orthogonal to the core spine but linked by foreign keys or polymorphic targets.',hi:['s-tag','s-qtl','s-atl','s-sug','s-eqa','s-flag','s-rep','s-not','s-sub','s-inbox']},
+    {t:'tag, quest_tag_link, asset_tag_link',d:'<strong>tag</strong> rows are key/value pairs (<code>key</code>, <code>value</code>). <strong>quest_tag_link</strong> and <strong>asset_tag_link</strong> attach tags to quests and assets for filtering and organization.',hi:['s-tag','s-qtl','s-atl']},
+    {t:'languoid_link_suggestion',d:'Stores proposed merges or links between languoids (<code>match_rank</code>, <code>matched_on</code>, <code>status</code>) for curator workflows—reduces duplicate language entries.',hi:['s-sug']},
+    {t:'export_quest_artifact',d:'Tracks generated bundles for a quest (<code>export_type</code> feedback vs distribution), <code>status</code> through ingestion, optional <code>share_token</code>, checksum, and metadata—used when shipping audio or review packages.',hi:['s-eqa']},
+    {t:'flag',d:'A small dictionary of named <strong>flag</strong> values (<code>name</code> unique)—used to mark content or users consistently in app logic.',hi:['s-flag']},
+    {t:'reports',d:'User-generated <strong>reports</strong> against arbitrary records (<code>record_table</code>, <code>record_id</code>) with <code>reason</code> and optional <code>details</code>.',hi:['s-rep']},
+    {t:'notification',d:'In-app <strong>notification</strong> rows per profile pointing at a <code>target_table_name</code> + <code>target_record_id</code> polymorphic pair with <code>viewed</code> state.',hi:['s-not']},
+    {t:'subscription',d:'Lets a profile subscribe to updates for a logical record (<code>target_table_name</code>, <code>target_record_id</code>)—distinct from push tokens; this is data-layer interest tracking.',hi:['s-sub']},
+    {t:'upload_inbox',d:'<strong>upload_inbox</strong> captures failed or staged ingest payloads (<code>data</code> JSON, logs, error and ref codes) for debugging bulk uploads without losing context.',hi:['s-inbox']}
+  ]
+},
+{
+  id:'tertiary',
+  label:'Tertiary',
+  phaseColor:'var(--text3)',
+  svg:`<svg viewBox="0 0 760 200" width="760" height="200" xmlns="http://www.w3.org/2000/svg">
+<text x="380" y="24" text-anchor="middle" style="font-family:JetBrains Mono;font-size:10px;fill:var(--text3)">Supporting &amp; operational tables</text>
+<rect id="t-bat" class="tb" x="40" y="60" width="140" height="72" rx="8"/><text x="110" y="92" text-anchor="middle" class="lbl">bible_audio_timestamp</text><text x="110" y="108" text-anchor="middle" class="lbl-sm">chapter timestamps jsonb</text>
+<rect id="t-bc" class="tb" x="200" y="60" width="120" height="72" rx="8"/><text x="260" y="92" text-anchor="middle" class="lbl">blocked_content</text>
+<rect id="t-bu" class="tb" x="340" y="60" width="110" height="72" rx="8"/><text x="395" y="92" text-anchor="middle" class="lbl">blocked_users</text>
+<rect id="t-cj" class="tb" x="470" y="60" width="100" height="72" rx="8"/><text x="520" y="92" text-anchor="middle" class="lbl">clone_job</text><text x="520" y="108" text-anchor="middle" class="lbl-sm">(see Cloning)</text>
+<rect id="t-llm" class="tb" x="590" y="60" width="130" height="72" rx="8"/><text x="655" y="88" text-anchor="middle" class="lbl">language_languoid</text><text x="655" y="102" text-anchor="middle" class="lbl">_map</text>
+<rect id="t-prp" class="tb" x="280" y="145" width="200" height="48" rx="8"/><text x="380" y="174" text-anchor="middle" class="lbl">project_rollup_progress</text>
+</svg>`,
+  steps:[
+    {t:'Tertiary overview',d:'Operational helpers, Bible timing data, moderation pairs, migration maps, and background rollup cursors—consult before deleting “unused” columns.'},
+    {t:'bible_audio_timestamp',d:'Stores per-chapter <code>timestamps</code> JSON for Bible audio alignment (<code>audio_fileset_id</code>, <code>book_id</code>, <code>chapter</code>)—used when <code>project.template</code> is bible-oriented.',hi:['t-bat']},
+    {t:'blocked_content',d:'Per-profile hides of specific content rows (<code>content_table</code> + <code>content_id</code>)—client-side or policy-driven suppression lists.',hi:['t-bc']},
+    {t:'blocked_users',d:'Symmetric block pairs (<code>blocker_id</code>, <code>blocked_id</code>) with composite PK—social safety between profiles.',hi:['t-bu']},
+    {t:'clone_job',d:'Same as the cloning tab: background job state for project duplication—linked from <code>map_*</code> tables.',hi:['t-cj']},
+    {t:'language_languoid_map',d:'Bridge table with PK on <code>language_id</code> mapping legacy <strong>language</strong> rows to <strong>languoid</strong>—supports gradual migration off the old language table.',hi:['t-llm']},
+    {t:'project_rollup_progress',d:'Cursor state for incremental maintenance of closures/rollups (<code>last_seen_quest_id</code> / timestamps)—avoid recomputing entire project graphs on every change.',hi:['t-prp']}
+  ]
+},
+{
+  id:'expired',
+  label:'Expired / legacy',
+  phaseColor:'var(--text2)',
+  svg:`<svg viewBox="0 0 560 180" width="560" height="180" xmlns="http://www.w3.org/2000/svg">
+<text x="280" y="28" text-anchor="middle" style="font-family:JetBrains Mono;font-size:10px;fill:var(--text3)">Superseded by languoid + asset_content_link</text>
+<rect id="e-lang" class="tb" x="80" y="60" width="160" height="88" rx="8"/><text x="160" y="98" text-anchor="middle" class="lbl">language</text><text x="160" y="116" text-anchor="middle" class="lbl-sm">iso639_3, native/english name</text>
+<rect id="e-tr" class="tb" x="320" y="60" width="160" height="88" rx="8"/><text x="400" y="98" text-anchor="middle" class="lbl">translation</text><text x="400" y="116" text-anchor="middle" class="lbl-sm">asset_id + target_language_id</text>
+<path class="edge vis" d="M240,104 L320,104" stroke-dasharray="6 4"/>
+<text x="280" y="155" text-anchor="middle" style="font-family:JetBrains Mono;font-size:8px;fill:var(--text3)">Do not build new features on these; migrate reads to languoid / asset_content_link</text>
+</svg>`,
+  steps:[
+    {t:'Legacy tables',d:'The <strong>language</strong> and <strong>translation</strong> tables remain in the dump for backward compatibility. New work should use <code>languoid</code>, <code>project_language_link</code>, and <code>asset_content_link</code>. Closure column names may still say “translation” for historical rollup fields.',hi:['e-lang','e-tr']},
+    {t:'language',d:'Old flat language catalog with <code>iso639_3</code> and display names. Prefer <code>languoid</code> + <code>language_languoid_map</code> where migration is complete.',hi:['e-lang']},
+    {t:'translation',d:'Per-asset translation rows with <code>target_language_id</code> pointing at legacy language. Superseded by rows in <code>asset_content_link</code> keyed by <code>languoid_id</code>.',hi:['e-tr']}
+  ]
+}
+];
+
+let tabIndex=0,curStep=0;
+
+function currentSection(){return SECTIONS[tabIndex];}
+
+function buildTabs(){
+  const el=document.getElementById('tabbar');
+  el.innerHTML=SECTIONS.map((s,i)=>
+    `<button type="button" role="tab" class="tab${i===tabIndex?' on':''}" id="tab-${s.id}" aria-selected="${i===tabIndex}" onclick="setTab(${i})">${s.label}</button>`
+  ).join('');
+}
+
+function injectDiagram(){
+  const root=document.getElementById('diagramRoot');
+  root.innerHTML=currentSection().svg;
+}
+
+function buildDots(){
+  const sec=currentSection();
+  const nav=document.getElementById('dotNav');
+  let html='';
+  sec.steps.forEach((st,i)=>{
+    html+=`<button type="button" class="dot${i===curStep?' cur':''}" onclick="goStep(${i})" title="${st.t.replace(/"/g,'&quot;')}"></button>`;
+  });
+  nav.innerHTML=html;
+}
+
+function highlightDiagram(){
+  const st=currentSection().steps[curStep];
+  const hi=st.hi;
+  document.querySelectorAll('#diagramRoot .tb').forEach(el=>{
+    el.classList.remove('tb-hi');
+    if(hi===undefined)el.classList.add('tb-hi');
+    else if(Array.isArray(hi)&&hi.length===0){/* text-only step: dim */}
+    else if(Array.isArray(hi)&&hi.includes(el.id))el.classList.add('tb-hi');
+  });
+}
+
+function renderStep(){
+  const sec=currentSection();
+  const st=sec.steps[curStep];
+  document.getElementById('stepPhase').textContent=sec.label;
+  document.getElementById('stepPhase').style.color=sec.phaseColor;
+  document.getElementById('stepTitle').textContent=st.t;
+  document.getElementById('stepDesc').innerHTML=st.d;
+  document.getElementById('stepCtr').textContent=`Step ${curStep+1} of ${sec.steps.length}`;
+  document.getElementById('prevBtn').disabled=curStep===0;
+  const nb=document.getElementById('nextBtn');
+  nb.textContent=curStep===sec.steps.length-1?'End of section ✓':'Next →';
+  nb.disabled=curStep===sec.steps.length-1;
+  buildTabs();
+  buildDots();
+  highlightDiagram();
+  fitDiagram();
+}
+
+function setTab(i){
+  if(i<0||i>=SECTIONS.length)return;
+  tabIndex=i;curStep=0;
+  injectDiagram();
+  renderStep();
+}
+
+function goStep(i){
+  const sec=currentSection();
+  if(i<0||i>=sec.steps.length)return;
+  curStep=i;
+  renderStep();
+}
+
+document.addEventListener('keydown',e=>{
+  const sec=currentSection();
+  if(e.key==='ArrowRight'||e.key==='ArrowDown'){e.preventDefault();if(curStep<sec.steps.length-1)goStep(curStep+1);}
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp'){e.preventDefault();if(curStep>0)goStep(curStep-1);}
+});
+
+function fitDiagram(){
+  const wrap=document.querySelector('.diagram-wrap');
+  const d=document.getElementById('diagramRoot');
+  const svg=d.querySelector('svg');
+  if(!svg)return;
+  const w=parseFloat(svg.getAttribute('width'))||920;
+  const vw=wrap.clientWidth-24,vh=wrap.clientHeight-24;
+  const sc=Math.min(vw/w,vh/280,1.15);
+  d.style.transform=`scale(${sc})`;
+  d.style.transformOrigin='center center';
+}
+
+function init(){
+  buildTabs();
+  injectDiagram();
+  curStep=0;
+  renderStep();
+  fitDiagram();
+  window.addEventListener('resize',fitDiagram);
+}
+init();
+</script>
+</body>
+</html>
