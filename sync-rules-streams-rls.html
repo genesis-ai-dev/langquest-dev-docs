@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LangQuest — Sync Rules, Streams &amp; RLS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #08080e; --card: #10101a; --card-hi: #14142a; --border: #1a1a2e; --border-hi: #2a2a44;
+  --text: #d4d4e8; --text-muted: #6a6a8a; --text-dim: #3a3a5a;
+  --cyan: #22d3ee; --purple: #a78bfa; --green: #34d399; --pink: #f472b6;
+  --amber: #fbbf24; --red: #f87171; --blue: #60a5fa; --orange: #fb923c;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',system-ui,sans-serif;overflow-x:hidden;min-height:100vh}
+
+.header{display:flex;align-items:center;justify-content:space-between;padding:10px 24px;border-bottom:1px solid var(--border);background:#0c0c14;position:sticky;top:0;z-index:50}
+.header h1{font-size:.95rem;font-weight:600}
+.header .subtitle{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.12em;margin-top:1px}
+
+.tab-bar{display:flex;gap:2px;background:var(--card);border-radius:10px;padding:3px;border:1px solid var(--border)}
+.tab{font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:7px 14px;border-radius:8px;border:none;background:transparent;color:var(--text-muted);cursor:pointer;transition:all .2s;white-space:nowrap}
+.tab:hover{color:var(--text)}
+.tab.active{background:var(--border);color:var(--text)}
+
+.main{max-width:1300px;margin:0 auto;padding:20px 24px 60px}
+
+/* Section panels */
+.section{display:none;animation:fadeUp .35s ease}
+.section.visible{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* Responsibility matrix */
+.matrix{display:grid;grid-template-columns:2fr 1fr 1fr;gap:1px;background:var(--border);border-radius:12px;overflow:hidden;margin:16px 0 24px}
+.matrix-head{background:#16162a;padding:12px 16px;font-family:'JetBrains Mono',monospace;font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.matrix-head.rls{color:var(--green)}
+.matrix-head.sync{color:var(--purple)}
+.matrix-cell{background:var(--card);padding:10px 16px;font-size:.78rem;line-height:1.6;color:var(--text-muted)}
+.matrix-cell .label{font-size:.72rem;font-weight:500;color:var(--text);margin-bottom:2px}
+.matrix-cell .badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.52rem;padding:2px 6px;border-radius:4px;margin-right:4px}
+.badge-yes{background:#34d39918;color:var(--green);border:1px solid #34d39930}
+.badge-no{background:#f8717118;color:var(--red);border:1px solid #f8717130}
+.badge-partial{background:#fbbf2418;color:var(--amber);border:1px solid #fbbf2430}
+
+/* Compare panels */
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0}
+.compare-panel{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.compare-header{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);background:#0e0e1a}
+.compare-header .dot{width:8px;height:8px;border-radius:50%}
+.compare-header .tag{font-family:'JetBrains Mono',monospace;font-size:.58rem;text-transform:uppercase;letter-spacing:.08em}
+.compare-header .legacy-tag{color:var(--amber)}
+.compare-header .new-tag{color:var(--green)}
+.compare-body{padding:14px 16px}
+
+/* Code blocks */
+.code-block{background:#0a0a14;border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-family:'JetBrains Mono',monospace;font-size:.65rem;line-height:1.65;color:var(--text-muted);overflow-x:auto;margin:8px 0;white-space:pre;tab-size:2}
+.code-block .kw{color:var(--purple)}
+.code-block .fn{color:var(--cyan)}
+.code-block .str{color:var(--green)}
+.code-block .cm{color:var(--text-dim)}
+.code-block .op{color:var(--pink)}
+.code-block .tbl{color:var(--orange)}
+.code-block .param{color:var(--amber)}
+
+/* Scenario picker */
+.scenario-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin:16px 0}
+.scenario-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:all .25s}
+.scenario-card:hover{border-color:var(--border-hi);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.scenario-card.active{border-color:var(--pink);box-shadow:0 0 20px #f472b610}
+.scenario-card .sc-icon{font-size:1.3rem;margin-bottom:8px}
+.scenario-card .sc-title{font-size:.85rem;font-weight:600;margin-bottom:4px}
+.scenario-card .sc-desc{font-size:.72rem;color:var(--text-muted);line-height:1.5}
+
+/* Scenario detail */
+.scenario-detail{display:none;margin:20px 0;animation:fadeUp .3s ease}
+.scenario-detail.visible{display:block}
+.step-timeline{position:relative;padding-left:28px;margin:16px 0}
+.step-timeline::before{content:'';position:absolute;left:8px;top:4px;bottom:4px;width:2px;background:var(--border)}
+.timeline-step{position:relative;margin-bottom:16px;cursor:pointer;transition:all .2s}
+.timeline-step::before{content:'';position:absolute;left:-24px;top:6px;width:14px;height:14px;border-radius:50%;background:var(--card);border:2px solid var(--border);transition:all .3s;z-index:1}
+.timeline-step.active::before{background:var(--pink);border-color:var(--pink);box-shadow:0 0 10px #f472b640}
+.timeline-step.completed::before{background:var(--green);border-color:var(--green)}
+.step-header{font-size:.82rem;font-weight:600;margin-bottom:4px;transition:color .2s}
+.timeline-step.active .step-header{color:var(--pink)}
+.step-body{display:none;animation:fadeUp .25s ease}
+.timeline-step.active .step-body{display:block}
+.step-body p{font-size:.75rem;color:var(--text-muted);line-height:1.6;margin-bottom:8px}
+
+/* Packet inspector */
+.packet-inspector{background:#0a0a14;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:10px 0}
+.packet-header{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);background:#0c0c16}
+.packet-direction{font-family:'JetBrains Mono',monospace;font-size:.55rem;padding:3px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.06em}
+.packet-direction.upload{background:#22d3ee18;color:var(--cyan);border:1px solid #22d3ee30}
+.packet-direction.download{background:#34d39918;color:var(--green);border:1px solid #34d39930}
+.packet-direction.rls-check{background:#f472b618;color:var(--pink);border:1px solid #f472b630}
+.packet-direction.sync-eval{background:#a78bfa18;color:var(--purple);border:1px solid #a78bfa30}
+.packet-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--text-dim)}
+.packet-body{padding:10px 12px;font-family:'JetBrains Mono',monospace;font-size:.6rem;line-height:1.7;color:var(--text-muted);white-space:pre;overflow-x:auto}
+.packet-body .pk{color:var(--cyan)}
+.packet-body .pv{color:var(--green)}
+.packet-body .pe{color:var(--pink)}
+.packet-body .pw{color:var(--amber)}
+.packet-body .pp{color:var(--purple)}
+
+/* Section headers */
+.section-title{font-size:1.1rem;font-weight:700;margin-bottom:4px}
+.section-subtitle{font-size:.78rem;color:var(--text-muted);line-height:1.6;margin-bottom:16px}
+.subsection{margin:24px 0}
+.subsection-title{font-size:.88rem;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.subsection-title .dot{width:8px;height:8px;border-radius:50%}
+.callout{background:#14142a;border-left:3px solid var(--purple);border-radius:0 8px 8px 0;padding:12px 16px;margin:12px 0;font-size:.75rem;line-height:1.6;color:var(--text-muted)}
+.callout strong{color:var(--text);font-weight:600}
+.callout.warn{border-left-color:var(--amber)}
+.callout.info{border-left-color:var(--cyan)}
+.callout.danger{border-left-color:var(--red)}
+
+/* Animation layer */
+.flow-vis{position:relative;height:180px;background:#0a0a14;border:1px solid var(--border);border-radius:10px;margin:16px 0;overflow:hidden}
+.flow-vis canvas{width:100%;height:100%}
+.flow-node{position:absolute;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--text-muted);transition:all .4s}
+.flow-node.lit{box-shadow:0 0 16px var(--glow,#a78bfa40);border-color:var(--glow-border,var(--purple))}
+
+/* Diff view */
+.diff{margin:12px 0}
+.diff-row{display:flex;font-family:'JetBrains Mono',monospace;font-size:.62rem;line-height:1.7}
+.diff-gutter{width:20px;text-align:center;user-select:none;flex-shrink:0}
+.diff-line{padding:0 8px;flex:1;border-radius:2px}
+.diff-row.removed .diff-gutter{color:var(--red)}
+.diff-row.removed .diff-line{background:#f8717108;color:#f8717199}
+.diff-row.added .diff-gutter{color:var(--green)}
+.diff-row.added .diff-line{background:#34d39908;color:#34d39999}
+.diff-row.ctx .diff-gutter{color:var(--text-dim)}
+.diff-row.ctx .diff-line{color:var(--text-dim)}
+
+/* Hover pill */
+.pill{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.58rem;padding:2px 7px;border-radius:4px;margin:0 2px;cursor:help;position:relative}
+.pill.rls{background:#34d39912;color:var(--green);border:1px solid #34d39925}
+.pill.sync{background:#a78bfa12;color:var(--purple);border:1px solid #a78bfa25}
+.pill.stream{background:#22d3ee12;color:var(--cyan);border:1px solid #22d3ee25}
+
+/* Animated flow diagram */
+.anim-flow{position:relative;height:200px;margin:16px 0;border:1px solid var(--border);border-radius:10px;background:#0a0a14;overflow:hidden}
+.anim-flow svg{width:100%;height:100%}
+
+@media(max-width:800px){
+  .compare{grid-template-columns:1fr}
+  .matrix{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Sync Rules, Streams &amp; RLS</h1>
+    <div class="subtitle">LangQuest &middot; PowerSync + Supabase Security Model</div>
+  </div>
+  <div class="tab-bar">
+    <button class="tab active" onclick="showSection('overview')">Overview</button>
+    <button class="tab" onclick="showSection('rules-vs-streams')">Rules vs Streams</button>
+    <button class="tab" onclick="showSection('rls-interaction')">RLS Interaction</button>
+    <button class="tab" onclick="showSection('scenarios')">Live Scenarios</button>
+  </div>
+</div>
+
+<div class="main">
+
+<!-- ============================================================ -->
+<!-- SECTION 1: OVERVIEW                                          -->
+<!-- ============================================================ -->
+<div class="section visible" id="sec-overview">
+  <h2 class="section-title">Who controls what?</h2>
+  <p class="section-subtitle">Three systems work together to secure data in LangQuest. Each has a distinct responsibility &mdash; and none of them is a substitute for the others.</p>
+
+  <div class="matrix">
+    <div class="matrix-head">Concern</div>
+    <div class="matrix-head rls">RLS (Supabase)</div>
+    <div class="matrix-head sync">Sync Rules / Streams</div>
+
+    <div class="matrix-cell"><div class="label">Who can INSERT / UPDATE / DELETE?</div></div>
+    <div class="matrix-cell"><span class="badge badge-yes">ENFORCED</span> Authoritative gatekeeper for all writes reaching Postgres</div>
+    <div class="matrix-cell"><span class="badge badge-no">NO</span> Not involved in writes at all</div>
+
+    <div class="matrix-cell"><div class="label">Who can read data via direct SQL?</div></div>
+    <div class="matrix-cell"><span class="badge badge-yes">ENFORCED</span> SELECT policies filter row visibility</div>
+    <div class="matrix-cell"><span class="badge badge-no">NO</span> Only affects PowerSync sync path</div>
+
+    <div class="matrix-cell"><div class="label">Which data syncs to which device?</div></div>
+    <div class="matrix-cell"><span class="badge badge-no">NO</span> RLS is not consulted during sync</div>
+    <div class="matrix-cell"><span class="badge badge-yes">ENFORCED</span> Defines per-user buckets/streams</div>
+
+    <div class="matrix-cell"><div class="label">Can a user sync data they shouldn't see?</div></div>
+    <div class="matrix-cell"><span class="badge badge-partial">INDIRECT</span> Doesn't prevent over-syncing</div>
+    <div class="matrix-cell"><span class="badge badge-yes">PREVENTS</span> Filters at replication layer</div>
+
+    <div class="matrix-cell"><div class="label">Can a user write data they shouldn't?</div></div>
+    <div class="matrix-cell"><span class="badge badge-yes">PREVENTS</span> Rejects unauthorized mutations</div>
+    <div class="matrix-cell"><span class="badge badge-no">NO</span> Client writes bypass sync rules entirely</div>
+
+    <div class="matrix-cell"><div class="label">Real-time data delivery</div></div>
+    <div class="matrix-cell"><span class="badge badge-no">NO</span> Static policy enforcement only</div>
+    <div class="matrix-cell"><span class="badge badge-yes">YES</span> Streams changes via WebSocket</div>
+  </div>
+
+  <div class="callout info">
+    <strong>Key insight:</strong> RLS is your security boundary (who <em>can</em> do what). Sync rules/streams are your efficiency boundary (who <em>gets</em> what). A secure app needs both &mdash; they are complementary, not interchangeable.
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title"><span class="dot" style="background:var(--amber)"></span> LangQuest's current config: edition 2 (hybrid)</div>
+    <p style="font-size:.78rem;color:var(--text-muted);line-height:1.6;margin-bottom:10px">
+      LangQuest uses <code>config: edition: 2</code>, which supports both legacy <code>bucket_definitions</code> and the newer <code>streams</code> section side by side. This is a transitional state &mdash; the sync config can be migrated to <code>edition: 3</code> (pure Sync Streams) when client SDKs are updated.
+    </p>
+    <div class="code-block"><span class="cm"># Current sync-rules.yml (simplified)</span>
+<span class="kw">config</span>:
+  <span class="kw">edition</span>: <span class="str">2</span>
+
+<span class="kw">streams</span>:                        <span class="cm"># New: Sync Streams (edition 2+)</span>
+  <span class="fn">co_member_profiles</span>:
+    <span class="kw">query</span>: |
+      <span class="op">SELECT</span> * <span class="op">FROM</span> <span class="tbl">profile</span>
+      <span class="op">WHERE</span> id <span class="op">IN</span> (
+        <span class="op">SELECT</span> profile_id <span class="op">FROM</span> <span class="tbl">profile_project_link</span>
+        <span class="op">WHERE</span> <span class="fn">auth.user_id()</span> <span class="op">in</span> <span class="param">download_profiles</span>
+        <span class="op">AND</span> active = <span class="str">true</span>
+      )
+      <span class="op">AND</span> active = <span class="str">true</span>
+    <span class="kw">auto_subscribe</span>: <span class="str">true</span>
+
+<span class="kw">bucket_definitions</span>:              <span class="cm"># Legacy: Sync Rules</span>
+  <span class="fn">global_bucket</span>:
+    <span class="kw">data</span>:
+      - <span class="op">SELECT</span> * <span class="op">FROM</span> <span class="tbl">languoid</span> <span class="op">WHERE</span> active = <span class="str">true</span> <span class="op">AND</span> ui_ready = <span class="str">true</span>
+  <span class="fn">user_profile</span>:
+    <span class="kw">parameters</span>: <span class="op">SELECT</span> <span class="fn">request.user_id()</span> <span class="op">AS</span> profile_id
+    <span class="kw">data</span>:
+      - <span class="op">SELECT</span> * <span class="op">FROM</span> <span class="tbl">profile</span> <span class="op">WHERE</span> id = <span class="param">bucket.profile_id</span>
+      - <span class="op">SELECT</span> * <span class="op">FROM</span> <span class="tbl">quest</span> <span class="op">WHERE</span> <span class="param">bucket.profile_id</span> <span class="op">in</span> download_profiles
+      <span class="cm"># ... 20+ more data queries</span></div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 2: RULES vs STREAMS                                  -->
+<!-- ============================================================ -->
+<div class="section" id="sec-rules-vs-streams">
+  <h2 class="section-title">Sync Rules (Legacy) vs Sync Streams</h2>
+  <p class="section-subtitle">Sync Streams (edition 3) replace the legacy Sync Rules approach. Both control which data syncs to which device &mdash; but the mental model, syntax, and capabilities differ significantly.</p>
+
+  <div class="subsection">
+    <div class="subsection-title"><span class="dot" style="background:var(--purple)"></span> Architecture comparison</div>
+  </div>
+
+  <div class="compare">
+    <div class="compare-panel">
+      <div class="compare-header">
+        <div class="dot" style="background:var(--amber)"></div>
+        <span class="tag legacy-tag">Sync Rules (Legacy) &middot; edition 1-2</span>
+      </div>
+      <div class="compare-body">
+        <p style="font-size:.75rem;color:var(--text-muted);line-height:1.6;margin-bottom:10px">
+          You explicitly define <strong style="color:var(--text)">buckets</strong>, each with <strong style="color:var(--text)">parameter queries</strong> and <strong style="color:var(--text)">data queries</strong>. The server pre-computes all possible bucket instances.
+        </p>
+        <div class="code-block"><span class="kw">bucket_definitions</span>:
+  <span class="fn">user_profile</span>:
+    <span class="cm"># 1. Parameter query: who gets this bucket?</span>
+    <span class="kw">parameters</span>: <span class="op">SELECT</span> <span class="fn">request.user_id()</span> <span class="op">AS</span> profile_id
+
+    <span class="cm"># 2. Data queries: what data goes in it?</span>
+    <span class="kw">data</span>:
+      - <span class="op">SELECT</span> * <span class="op">FROM</span> <span class="tbl">profile</span>
+        <span class="op">WHERE</span> id = <span class="param">bucket.profile_id</span>
+      - <span class="op">SELECT</span> * <span class="op">FROM</span> <span class="tbl">quest</span>
+        <span class="op">WHERE</span> <span class="param">bucket.profile_id</span> <span class="op">in</span> download_profiles</div>
+        <p style="font-size:.72rem;color:var(--text-muted);line-height:1.6;margin-top:10px">
+          <strong style="color:var(--amber)">All data syncs upfront</strong> when the client connects. No way for the client to request specific data on-demand.
+        </p>
+        <div style="margin-top:12px;font-size:.72rem;color:var(--text-muted);line-height:1.7">
+          <strong style="color:var(--text)">Client code:</strong>
+        </div>
+        <div class="code-block"><span class="cm">// Connect and wait — all bucket data downloads</span>
+<span class="kw">await</span> db.<span class="fn">connect</span>(connector);
+<span class="cm">// Data is just... there. No subscription API.</span>
+<span class="kw">const</span> quests = <span class="kw">await</span> db.<span class="fn">getAll</span>(<span class="str">'SELECT * FROM quest'</span>);</div>
+      </div>
+    </div>
+
+    <div class="compare-panel">
+      <div class="compare-header">
+        <div class="dot" style="background:var(--green)"></div>
+        <span class="tag new-tag">Sync Streams &middot; edition 3</span>
+      </div>
+      <div class="compare-body">
+        <p style="font-size:.75rem;color:var(--text-muted);line-height:1.6;margin-bottom:10px">
+          You define <strong style="color:var(--text)">streams</strong> with SQL queries. Clients <strong style="color:var(--text)">subscribe</strong> to streams with parameters. Buckets are created implicitly.
+        </p>
+        <div class="code-block"><span class="kw">streams</span>:
+  <span class="fn">my_quests</span>:
+    <span class="cm"># Single query — parameters inline</span>
+    <span class="kw">query</span>: |
+      <span class="op">SELECT</span> * <span class="op">FROM</span> <span class="tbl">quest</span>
+      <span class="op">WHERE</span> <span class="fn">auth.user_id()</span> <span class="op">in</span> download_profiles
+    <span class="kw">auto_subscribe</span>: <span class="str">true</span>
+
+  <span class="fn">project_data</span>:
+    <span class="cm"># On-demand: client subscribes with project_id</span>
+    <span class="kw">query</span>: |
+      <span class="op">SELECT</span> * <span class="op">FROM</span> <span class="tbl">quest</span>
+      <span class="op">WHERE</span> project_id = <span class="fn">subscription.parameter</span>(<span class="str">'project_id'</span>)
+        <span class="op">AND</span> <span class="fn">auth.user_id()</span> <span class="op">in</span> download_profiles</div>
+        <p style="font-size:.72rem;color:var(--text-muted);line-height:1.6;margin-top:10px">
+          <strong style="color:var(--green)">On-demand or auto</strong> &mdash; subscribe when needed, data syncs just-in-time with built-in TTL caching.
+        </p>
+        <div style="margin-top:12px;font-size:.72rem;color:var(--text-muted);line-height:1.7">
+          <strong style="color:var(--text)">Client code:</strong>
+        </div>
+        <div class="code-block"><span class="cm">// Subscribe on-demand with parameters + TTL</span>
+<span class="kw">const</span> sub = <span class="kw">await</span> db
+  .<span class="fn">syncStream</span>(<span class="str">'project_data'</span>, { <span class="param">project_id</span>: id })
+  .<span class="fn">subscribe</span>({ <span class="param">ttl</span>: <span class="str">3600</span> });
+
+<span class="kw">await</span> sub.<span class="fn">waitForFirstSync</span>();
+<span class="cm">// Later: sub.unsubscribe() — data cached for TTL</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title"><span class="dot" style="background:var(--cyan)"></span> Syntax mapping cheat sheet</div>
+  </div>
+
+  <div class="matrix" style="grid-template-columns:1fr 1fr 1fr">
+    <div class="matrix-head">Concept</div>
+    <div class="matrix-head" style="color:var(--amber)">Sync Rules</div>
+    <div class="matrix-head" style="color:var(--green)">Sync Streams</div>
+
+    <div class="matrix-cell"><div class="label">User ID</div></div>
+    <div class="matrix-cell"><code style="color:var(--amber)">request.user_id()</code></div>
+    <div class="matrix-cell"><code style="color:var(--green)">auth.user_id()</code></div>
+
+    <div class="matrix-cell"><div class="label">JWT claims</div></div>
+    <div class="matrix-cell"><code style="color:var(--amber)">request.jwt() ->> 'claim'</code></div>
+    <div class="matrix-cell"><code style="color:var(--green)">auth.parameter('claim')</code></div>
+
+    <div class="matrix-cell"><div class="label">Client-supplied values</div></div>
+    <div class="matrix-cell"><code style="color:var(--amber)">request.parameters() ->> 'key'</code></div>
+    <div class="matrix-cell"><code style="color:var(--green)">subscription.parameter('key')</code></div>
+
+    <div class="matrix-cell"><div class="label">Reference a parameter</div></div>
+    <div class="matrix-cell"><code style="color:var(--amber)">bucket.param_name</code></div>
+    <div class="matrix-cell"><code style="color:var(--green)">Inline in query</code></div>
+
+    <div class="matrix-cell"><div class="label">Global data (all users)</div></div>
+    <div class="matrix-cell">Omit <code>parameters:</code> block</div>
+    <div class="matrix-cell">Query with no params + <code style="color:var(--green)">auto_subscribe: true</code></div>
+
+    <div class="matrix-cell"><div class="label">Data caching after disconnect</div></div>
+    <div class="matrix-cell"><span class="badge badge-no">NONE</span></div>
+    <div class="matrix-cell"><code style="color:var(--green)">ttl: 3600</code> per subscription</div>
+
+    <div class="matrix-cell"><div class="label">Multi-tab / multi-instance</div></div>
+    <div class="matrix-cell"><span class="badge badge-no">PAINFUL</span> Manual ID aggregation</div>
+    <div class="matrix-cell"><span class="badge badge-yes">BUILT-IN</span> Independent subscriptions</div>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title"><span class="dot" style="background:var(--pink)"></span> Migration diff: LangQuest's global bucket</div>
+    <p style="font-size:.75rem;color:var(--text-muted);line-height:1.6;margin-bottom:10px">
+      Here's what migrating the simplest bucket looks like:
+    </p>
+  </div>
+
+  <div class="diff">
+    <div class="diff-row removed"><div class="diff-gutter">-</div><div class="diff-line">config:</div></div>
+    <div class="diff-row removed"><div class="diff-gutter">-</div><div class="diff-line">  edition: 2</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">config:</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">  edition: 3</div></div>
+    <div class="diff-row ctx"><div class="diff-gutter"> </div><div class="diff-line"></div></div>
+    <div class="diff-row removed"><div class="diff-gutter">-</div><div class="diff-line">bucket_definitions:</div></div>
+    <div class="diff-row removed"><div class="diff-gutter">-</div><div class="diff-line">  global_bucket:</div></div>
+    <div class="diff-row removed"><div class="diff-gutter">-</div><div class="diff-line">    data:</div></div>
+    <div class="diff-row removed"><div class="diff-gutter">-</div><div class="diff-line">      - SELECT * FROM "languoid" WHERE active = true AND ui_ready = true</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">streams:</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">  ui_languoids:</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">    auto_subscribe: true</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">    query: SELECT * FROM "languoid" WHERE active = true AND ui_ready = true</div></div>
+  </div>
+
+  <div class="callout">
+    <strong>No client-side change needed</strong> for <code>auto_subscribe: true</code> streams &mdash; they behave identically to legacy global buckets. You can incrementally migrate to on-demand subscriptions later.
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title"><span class="dot" style="background:var(--pink)"></span> Migration diff: LangQuest's user_profile bucket</div>
+    <p style="font-size:.75rem;color:var(--text-muted);line-height:1.6;margin-bottom:10px">
+      The complex bucket becomes multiple focused streams:
+    </p>
+  </div>
+
+  <div class="diff">
+    <div class="diff-row removed"><div class="diff-gutter">-</div><div class="diff-line">bucket_definitions:</div></div>
+    <div class="diff-row removed"><div class="diff-gutter">-</div><div class="diff-line">  user_profile:</div></div>
+    <div class="diff-row removed"><div class="diff-gutter">-</div><div class="diff-line">    parameters: SELECT request.user_id() AS profile_id</div></div>
+    <div class="diff-row removed"><div class="diff-gutter">-</div><div class="diff-line">    data:</div></div>
+    <div class="diff-row removed"><div class="diff-gutter">-</div><div class="diff-line">      - SELECT * FROM "profile" WHERE id = bucket.profile_id</div></div>
+    <div class="diff-row removed"><div class="diff-gutter">-</div><div class="diff-line">      - SELECT * FROM "quest" WHERE bucket.profile_id in download_profiles</div></div>
+    <div class="diff-row removed"><div class="diff-gutter">-</div><div class="diff-line">      - SELECT * FROM "vote" WHERE bucket.profile_id in download_profiles</div></div>
+    <div class="diff-row removed"><div class="diff-gutter">-</div><div class="diff-line">      # ... 20+ more queries all in one bucket</div></div>
+    <div class="diff-row ctx"><div class="diff-gutter"> </div><div class="diff-line"></div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">streams:</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">  my_profile:</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">    auto_subscribe: true</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">    query: SELECT * FROM "profile" WHERE id = auth.user_id()</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line"></div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">  my_content:   # auto-subscribe for offline-first</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">    auto_subscribe: true</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">    queries:</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">      - SELECT * FROM "quest" WHERE auth.user_id() in download_profiles</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">      - SELECT * FROM "asset" WHERE auth.user_id() in download_profiles</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">      - SELECT * FROM "vote" WHERE auth.user_id() in download_profiles</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line"></div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">  project_detail:   # on-demand when user opens a project</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">    query: |</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">      SELECT * FROM "quest"</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">      WHERE project_id = subscription.parameter('project_id')</div></div>
+    <div class="diff-row added"><div class="diff-gutter">+</div><div class="diff-line">        AND auth.user_id() in download_profiles</div></div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 3: RLS INTERACTION                                   -->
+<!-- ============================================================ -->
+<div class="section" id="sec-rls-interaction">
+  <h2 class="section-title">How RLS and Sync Rules/Streams interact</h2>
+  <p class="section-subtitle">RLS and sync filtering are applied at completely different points in the data pipeline. Understanding when each fires is critical.</p>
+
+  <div class="subsection">
+    <div class="subsection-title"><span class="dot" style="background:var(--cyan)"></span> Write path: RLS enforced, sync rules ignored</div>
+  </div>
+
+  <div class="anim-flow" id="writeFlow">
+    <svg viewBox="0 0 900 200" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <marker id="arrowG" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#34d39960"/></marker>
+        <marker id="arrowR" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#f8717160"/></marker>
+        <marker id="arrowP" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#a78bfa60"/></marker>
+      </defs>
+      <text x="20" y="24" fill="#ffffff06" font-family="JetBrains Mono" font-size="11" letter-spacing=".2em" text-transform="uppercase">WRITE PATH (UPLOAD)</text>
+
+      <!-- Nodes -->
+      <rect x="30" y="70" width="130" height="50" rx="8" fill="#10101a" stroke="#1a1a2e"/>
+      <text x="95" y="92" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono" font-size="10" font-weight="600">Client App</text>
+      <text x="95" y="106" text-anchor="middle" fill="#3a3a5a" font-family="JetBrains Mono" font-size="8">ps_crud queue</text>
+
+      <rect x="220" y="70" width="130" height="50" rx="8" fill="#10101a" stroke="#1a1a2e"/>
+      <text x="285" y="92" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono" font-size="10" font-weight="600">uploadData()</text>
+      <text x="285" y="106" text-anchor="middle" fill="#3a3a5a" font-family="JetBrains Mono" font-size="8">Connector</text>
+
+      <rect x="410" y="70" width="130" height="50" rx="8" fill="#10101a" stroke="#1a1a2e"/>
+      <text x="475" y="92" text-anchor="middle" fill="#34d399" font-family="JetBrains Mono" font-size="10" font-weight="600">Supabase RPC</text>
+      <text x="475" y="106" text-anchor="middle" fill="#3a3a5a" font-family="JetBrains Mono" font-size="8">Edge Function</text>
+
+      <rect x="600" y="55" width="130" height="80" rx="8" fill="#34d39908" stroke="#34d39930"/>
+      <text x="665" y="80" text-anchor="middle" fill="#34d399" font-family="JetBrains Mono" font-size="10" font-weight="600">RLS Policy</text>
+      <text x="665" y="95" text-anchor="middle" fill="#34d39980" font-family="JetBrains Mono" font-size="8">creator_id =</text>
+      <text x="665" y="108" text-anchor="middle" fill="#34d39980" font-family="JetBrains Mono" font-size="8">auth.uid()?</text>
+      <text x="665" y="125" text-anchor="middle" fill="#34d39960" font-family="JetBrains Mono" font-size="7">ENFORCED</text>
+
+      <rect x="780" y="70" width="100" height="50" rx="8" fill="#10101a" stroke="#1a1a2e"/>
+      <text x="830" y="92" text-anchor="middle" fill="#34d399" font-family="JetBrains Mono" font-size="10" font-weight="600">Postgres</text>
+      <text x="830" y="106" text-anchor="middle" fill="#3a3a5a" font-family="JetBrains Mono" font-size="8">Tables</text>
+
+      <!-- Arrows -->
+      <line x1="160" y1="95" x2="218" y2="95" stroke="#22d3ee40" stroke-width="2" marker-end="url(#arrowG)"/>
+      <line x1="350" y1="95" x2="408" y2="95" stroke="#22d3ee40" stroke-width="2" marker-end="url(#arrowG)"/>
+      <line x1="540" y1="95" x2="598" y2="95" stroke="#34d39940" stroke-width="2" marker-end="url(#arrowG)"/>
+      <line x1="730" y1="95" x2="778" y2="95" stroke="#34d39940" stroke-width="2" marker-end="url(#arrowG)"/>
+
+      <!-- Sync Rules NOT HERE label -->
+      <rect x="380" y="148" width="180" height="30" rx="6" fill="#f8717108" stroke="#f8717120"/>
+      <text x="470" y="167" text-anchor="middle" fill="#f87171" font-family="JetBrains Mono" font-size="8">SYNC RULES NOT INVOLVED</text>
+    </svg>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title"><span class="dot" style="background:var(--purple)"></span> Read/sync path: Sync rules enforced, RLS not consulted</div>
+  </div>
+
+  <div class="anim-flow" id="readFlow">
+    <svg viewBox="0 0 900 200" preserveAspectRatio="xMidYMid meet">
+      <text x="20" y="24" fill="#ffffff06" font-family="JetBrains Mono" font-size="11" letter-spacing=".2em" text-transform="uppercase">SYNC PATH (DOWNLOAD)</text>
+
+      <rect x="30" y="70" width="120" height="50" rx="8" fill="#10101a" stroke="#1a1a2e"/>
+      <text x="90" y="92" text-anchor="middle" fill="#34d399" font-family="JetBrains Mono" font-size="10" font-weight="600">Postgres</text>
+      <text x="90" y="106" text-anchor="middle" fill="#3a3a5a" font-family="JetBrains Mono" font-size="8">WAL stream</text>
+
+      <rect x="200" y="70" width="130" height="50" rx="8" fill="#10101a" stroke="#1a1a2e"/>
+      <text x="265" y="92" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono" font-size="10" font-weight="600">PowerSync</text>
+      <text x="265" y="106" text-anchor="middle" fill="#3a3a5a" font-family="JetBrains Mono" font-size="8">Replicate</text>
+
+      <rect x="390" y="55" width="150" height="80" rx="8" fill="#a78bfa08" stroke="#a78bfa30"/>
+      <text x="465" y="78" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono" font-size="10" font-weight="600">Sync Rules /</text>
+      <text x="465" y="92" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono" font-size="10" font-weight="600">Streams</text>
+      <text x="465" y="108" text-anchor="middle" fill="#a78bfa80" font-family="JetBrains Mono" font-size="8">user_id in</text>
+      <text x="465" y="120" text-anchor="middle" fill="#a78bfa80" font-family="JetBrains Mono" font-size="8">download_profiles?</text>
+      <text x="465" y="130" text-anchor="middle" fill="#a78bfa60" font-family="JetBrains Mono" font-size="7">ENFORCED</text>
+
+      <rect x="600" y="70" width="120" height="50" rx="8" fill="#10101a" stroke="#1a1a2e"/>
+      <text x="660" y="92" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono" font-size="10" font-weight="600">Buckets</text>
+      <text x="660" y="106" text-anchor="middle" fill="#3a3a5a" font-family="JetBrains Mono" font-size="8">Per-user data</text>
+
+      <rect x="770" y="70" width="110" height="50" rx="8" fill="#10101a" stroke="#1a1a2e"/>
+      <text x="825" y="92" text-anchor="middle" fill="#22d3ee" font-family="JetBrains Mono" font-size="10" font-weight="600">Client</text>
+      <text x="825" y="106" text-anchor="middle" fill="#3a3a5a" font-family="JetBrains Mono" font-size="8">SQLite</text>
+
+      <line x1="150" y1="95" x2="198" y2="95" stroke="#a78bfa40" stroke-width="2" marker-end="url(#arrowP)"/>
+      <line x1="330" y1="95" x2="388" y2="95" stroke="#a78bfa40" stroke-width="2" marker-end="url(#arrowP)"/>
+      <line x1="540" y1="95" x2="598" y2="95" stroke="#a78bfa40" stroke-width="2" marker-end="url(#arrowP)"/>
+      <line x1="720" y1="95" x2="768" y2="95" stroke="#22d3ee40" stroke-width="2" marker-end="url(#arrowG)"/>
+
+      <rect x="160" y="148" width="160" height="30" rx="6" fill="#f8717108" stroke="#f8717120"/>
+      <text x="240" y="167" text-anchor="middle" fill="#f87171" font-family="JetBrains Mono" font-size="8">RLS NOT CONSULTED</text>
+    </svg>
+  </div>
+
+  <div class="callout warn">
+    <strong>Common misconception:</strong> "If my RLS allows a user to SELECT a row, that user will also get it via sync." <strong>False.</strong> RLS and sync filtering are independent. A row must match <em>both</em> the sync rules/streams query AND any RLS SELECT policy to be accessible through their respective paths. But they are evaluated in completely separate contexts.
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title"><span class="dot" style="background:var(--green)"></span> Side-by-side: RLS policy vs sync query for the same table</div>
+  </div>
+
+  <div class="compare">
+    <div class="compare-panel">
+      <div class="compare-header">
+        <div class="dot" style="background:var(--green)"></div>
+        <span class="tag" style="color:var(--green)">RLS Policy &middot; vote table</span>
+      </div>
+      <div class="compare-body">
+        <p style="font-size:.72rem;color:var(--text-muted);line-height:1.6;margin-bottom:8px">Controls who can <strong style="color:var(--text)">write</strong> votes via Supabase API / RPC:</p>
+        <div class="code-block"><span class="cm">-- INSERT: only the creator</span>
+<span class="kw">CREATE POLICY</span> <span class="str">"Enable vote insert only by creator"</span>
+<span class="op">ON</span> <span class="tbl">vote</span> <span class="op">FOR INSERT TO</span> authenticated
+<span class="op">WITH CHECK</span> (
+  <span class="param">creator_id</span> = <span class="fn">auth.uid()</span>
+);
+
+<span class="cm">-- UPDATE: only the creator</span>
+<span class="kw">CREATE POLICY</span> <span class="str">"Enable vote update only by vote creator"</span>
+<span class="op">ON</span> <span class="tbl">vote</span> <span class="op">FOR UPDATE TO</span> authenticated
+<span class="op">USING</span> (<span class="param">creator_id</span> = <span class="fn">auth.uid()</span>)
+<span class="op">WITH CHECK</span> (<span class="param">creator_id</span> = <span class="fn">auth.uid()</span>);</div>
+        <p style="font-size:.7rem;color:var(--text-dim);margin-top:6px">Scope: write operations only. Prevents impersonation and vote manipulation.</p>
+      </div>
+    </div>
+
+    <div class="compare-panel">
+      <div class="compare-header">
+        <div class="dot" style="background:var(--purple)"></div>
+        <span class="tag" style="color:var(--purple)">Sync Rule &middot; vote table</span>
+      </div>
+      <div class="compare-body">
+        <p style="font-size:.72rem;color:var(--text-muted);line-height:1.6;margin-bottom:8px">Controls which votes <strong style="color:var(--text)">sync to the device</strong>:</p>
+        <div class="code-block"><span class="cm"># Sync Rules (legacy)</span>
+<span class="kw">bucket_definitions</span>:
+  <span class="fn">user_profile</span>:
+    <span class="kw">parameters</span>: <span class="op">SELECT</span> <span class="fn">request.user_id()</span> <span class="op">AS</span> profile_id
+    <span class="kw">data</span>:
+      - <span class="op">SELECT</span> * <span class="op">FROM</span> <span class="tbl">vote</span>
+        <span class="op">WHERE</span> <span class="param">bucket.profile_id</span> <span class="op">in</span> download_profiles
+
+<span class="cm"># Sync Streams (equivalent)</span>
+<span class="kw">streams</span>:
+  <span class="fn">project_votes</span>:
+    <span class="kw">auto_subscribe</span>: <span class="str">true</span>
+    <span class="kw">query</span>: <span class="op">SELECT</span> * <span class="op">FROM</span> <span class="tbl">vote</span>
+      <span class="op">WHERE</span> <span class="fn">auth.user_id()</span> <span class="op">in</span> download_profiles</div>
+        <p style="font-size:.7rem;color:var(--text-dim);margin-top:6px">Scope: download sync only. User gets votes from all projects they downloaded.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout info">
+    <strong>Notice the pattern:</strong> RLS checks <code>auth.uid()</code> against <code>creator_id</code> (ownership). Sync rules check <code>user_id</code> against <code>download_profiles[]</code> (membership / subscription). Same table, completely different access patterns.
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 4: LIVE SCENARIOS                                    -->
+<!-- ============================================================ -->
+<div class="section" id="sec-scenarios">
+  <h2 class="section-title">Live scenarios</h2>
+  <p class="section-subtitle">Walk through real user actions and see the exact data packets at each stage. Click a scenario, then step through each phase.</p>
+
+  <div class="scenario-grid">
+    <div class="scenario-card" onclick="pickScenario('vote')" id="sc-vote">
+      <div class="sc-icon">🗳</div>
+      <div class="sc-title">Casting a Vote</div>
+      <div class="sc-desc">User upvotes a translation. See the RLS check on insert, the ps_crud entry, and the sync distribution to co-members.</div>
+    </div>
+    <div class="scenario-card" onclick="pickScenario('download')" id="sc-download">
+      <div class="sc-icon">📥</div>
+      <div class="sc-title">Downloading a Project</div>
+      <div class="sc-desc">User requests a project. The RPC adds their profile_id to download_profiles, triggering sync rule re-evaluation and data streaming.</div>
+    </div>
+    <div class="scenario-card" onclick="pickScenario('join')" id="sc-join">
+      <div class="sc-icon">🤝</div>
+      <div class="sc-title">Accepting an Invite</div>
+      <div class="sc-desc">User accepts a project invite. See the complex RLS policy for profile_project_link and how sync rules pick up the new membership.</div>
+    </div>
+    <div class="scenario-card" onclick="pickScenario('global')" id="sc-global">
+      <div class="sc-icon">🌍</div>
+      <div class="sc-title">Global Languoid Sync</div>
+      <div class="sc-desc">No user filter needed. See how global buckets / auto-subscribe streams push reference data to every connected client.</div>
+    </div>
+  </div>
+
+  <div class="scenario-detail" id="scenario-detail"></div>
+</div>
+
+</div><!-- .main -->
+
+<script>
+// ═══════════════════════════════════════
+// TAB NAVIGATION
+// ═══════════════════════════════════════
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('visible'));
+  document.getElementById('sec-' + id).classList.add('visible');
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+// ═══════════════════════════════════════
+// SCENARIO ENGINE
+// ═══════════════════════════════════════
+const SCENARIOS = {
+  vote: {
+    title: 'Casting a Vote',
+    steps: [
+      {
+        title: 'User taps "Upvote" in the app',
+        desc: 'The React Native app writes a new row to the <code>vote_synced</code> table in the local SQLite database. This immediately creates a <code>PUT</code> entry in the <code>ps_crud</code> upload queue.',
+        packets: [
+          { dir: 'upload', label: 'SQLite write → ps_crud queue entry', body:
+`<span class="pk">op</span>:     <span class="pv">PUT</span>
+<span class="pk">table</span>:  <span class="pv">vote</span>
+<span class="pk">id</span>:     <span class="pv">a1b2c3d4-...</span>
+<span class="pk">data</span>:   {
+  <span class="pk">"id"</span>:          <span class="pv">"a1b2c3d4-..."</span>,
+  <span class="pk">"creator_id"</span>:  <span class="pv">"user-alice-uuid"</span>,
+  <span class="pk">"asset_id"</span>:    <span class="pv">"asset-xyz-uuid"</span>,
+  <span class="pk">"direction"</span>:   <span class="pv">"up"</span>,
+  <span class="pk">"active"</span>:      <span class="pv">true</span>,
+  <span class="pk">"_metadata"</span>:   { <span class="pk">"schema_version"</span>: <span class="pv">"2.2"</span> }
+}`
+          }
+        ]
+      },
+      {
+        title: 'uploadData() sends the mutation via RPC',
+        desc: 'The SupabaseConnector drains the queue, normalizes the data, and calls <code>apply_table_mutation_transaction</code> via Supabase RPC. The payload is sent as an HTTP POST to Supabase\'s edge.',
+        packets: [
+          { dir: 'upload', label: 'HTTP POST → supabase.rpc()', body:
+`<span class="pk">function</span>: <span class="pv">apply_table_mutation_transaction</span>
+<span class="pk">args</span>:
+  <span class="pk">operations</span>: [
+    {
+      <span class="pk">"op"</span>:    <span class="pv">"PUT"</span>,
+      <span class="pk">"table"</span>: <span class="pv">"vote"</span>,
+      <span class="pk">"id"</span>:    <span class="pv">"a1b2c3d4-..."</span>,
+      <span class="pk">"data"</span>:  {
+        <span class="pk">"creator_id"</span>: <span class="pv">"user-alice-uuid"</span>,
+        <span class="pk">"asset_id"</span>:   <span class="pv">"asset-xyz-uuid"</span>,
+        <span class="pk">"direction"</span>:  <span class="pv">"up"</span>,
+        <span class="pk">"active"</span>:     <span class="pv">true</span>
+      }
+    }
+  ]`
+          }
+        ]
+      },
+      {
+        title: 'RLS evaluates the INSERT',
+        desc: 'The RPC function performs an INSERT on the <code>vote</code> table. Postgres evaluates the RLS policy <code>"Enable vote insert only by creator"</code>. Because Alice\'s JWT uid matches <code>creator_id</code>, the insert succeeds. If an attacker tried to set <code>creator_id</code> to someone else\'s ID, this would be <strong>rejected</strong>.',
+        packets: [
+          { dir: 'rls-check', label: 'RLS policy evaluation', body:
+`<span class="pk">policy</span>:  <span class="pv">"Enable vote insert only by creator"</span>
+<span class="pk">table</span>:   <span class="pv">vote</span>
+<span class="pk">action</span>:  <span class="pv">INSERT</span>
+
+<span class="pk">check</span>:   creator_id = auth.uid()
+         <span class="pv">"user-alice-uuid"</span> = <span class="pv">"user-alice-uuid"</span>
+
+<span class="pk">result</span>:  <span class="pv">✓ ALLOWED</span> — creator matches JWT subject`
+          },
+          { dir: 'rls-check', label: 'Hypothetical attack (blocked)', body:
+`<span class="pk">attack</span>:  Attacker sends creator_id = <span class="pe">"user-bob-uuid"</span>
+<span class="pk">check</span>:   creator_id = auth.uid()
+         <span class="pe">"user-bob-uuid"</span> ≠ <span class="pv">"user-attacker-uuid"</span>
+
+<span class="pk">result</span>:  <span class="pe">✗ DENIED</span> — impersonation blocked by RLS`
+          }
+        ]
+      },
+      {
+        title: 'WAL captures the committed vote',
+        desc: 'The INSERT commits to Postgres. The change is captured in the Write-Ahead Log and picked up by the PowerSync Service\'s logical replication slot. Zero polling delay.',
+        packets: [
+          { dir: 'download', label: 'WAL replication event', body:
+`<span class="pk">lsn</span>:        <span class="pv">0/1A2B3C4D</span>
+<span class="pk">relation</span>:   <span class="pv">public.vote</span>
+<span class="pk">operation</span>:  <span class="pv">INSERT</span>
+<span class="pk">new_tuple</span>:  {
+  <span class="pk">"id"</span>:          <span class="pv">"a1b2c3d4-..."</span>,
+  <span class="pk">"creator_id"</span>:  <span class="pv">"user-alice-uuid"</span>,
+  <span class="pk">"asset_id"</span>:    <span class="pv">"asset-xyz-uuid"</span>,
+  <span class="pk">"direction"</span>:   <span class="pv">"up"</span>,
+  <span class="pk">"active"</span>:      <span class="pv">true</span>,
+  <span class="pk">"download_profiles"</span>: <span class="pp">["user-alice-uuid", "user-bob-uuid"]</span>
+}`
+          }
+        ]
+      },
+      {
+        title: 'Sync rules route the vote to buckets',
+        desc: 'PowerSync evaluates the sync rule: <code>SELECT * FROM vote WHERE bucket.profile_id in download_profiles</code>. The vote\'s <code>download_profiles</code> array contains both Alice and Bob, so the vote is added to both their buckets and streamed via WebSocket.',
+        packets: [
+          { dir: 'sync-eval', label: 'Sync rule evaluation', body:
+`<span class="pk">bucket</span>:  <span class="pv">user_profile</span>
+<span class="pk">query</span>:   SELECT * FROM vote
+         WHERE <span class="pp">bucket.profile_id</span> in download_profiles
+
+<span class="pk">evaluate for Alice</span>:
+  <span class="pp">"user-alice-uuid"</span> in <span class="pp">["user-alice-uuid", "user-bob-uuid"]</span>
+  → <span class="pv">✓ MATCH</span> → route to bucket user_profile[<span class="pv">"alice"</span>]
+
+<span class="pk">evaluate for Bob</span>:
+  <span class="pp">"user-bob-uuid"</span> in <span class="pp">["user-alice-uuid", "user-bob-uuid"]</span>
+  → <span class="pv">✓ MATCH</span> → route to bucket user_profile[<span class="pv">"bob"</span>]`
+          },
+          { dir: 'download', label: 'WebSocket sync to Bob\'s device', body:
+`<span class="pk">bucket_id</span>:  <span class="pv">user_profile["user-bob-uuid"]</span>
+<span class="pk">op_id</span>:      <span class="pv">4821</span>
+<span class="pk">op</span>:         <span class="pv">PUT</span>
+<span class="pk">table</span>:      <span class="pv">vote</span>
+<span class="pk">row_id</span>:     <span class="pv">a1b2c3d4-...</span>
+<span class="pk">checksum</span>:   <span class="pv">0x7f3a...</span>
+<span class="pk">data</span>:       { <span class="pk">"creator_id"</span>: <span class="pv">"user-alice-uuid"</span>, ... }`
+          }
+        ]
+      }
+    ]
+  },
+  download: {
+    title: 'Downloading a Project',
+    steps: [
+      {
+        title: 'User taps "Download" on a project',
+        desc: 'The app calls <code>download_project_closure</code> via Supabase RPC. This server function computes the full dependency tree of the project (quests, assets, tags, links, languoids).',
+        packets: [
+          { dir: 'upload', label: 'HTTP POST → supabase.rpc()', body:
+`<span class="pk">function</span>: <span class="pv">download_project_closure</span>
+<span class="pk">args</span>:
+  <span class="pk">target_project_id</span>: <span class="pv">"proj-swahili-uuid"</span>
+
+<span class="pw">Note: This is NOT a PowerSync write.</span>
+<span class="pw">It's a direct RPC call that modifies</span>
+<span class="pw">download_profiles arrays on the server.</span>`
+          }
+        ]
+      },
+      {
+        title: 'RPC adds profile_id to download_profiles',
+        desc: 'The RPC function adds Alice\'s <code>profile_id</code> to the <code>download_profiles</code> array on the project and all its transitive dependencies. This is a server-side batch update.',
+        packets: [
+          { dir: 'rls-check', label: 'Server-side UPDATE (RPC context)', body:
+`<span class="pk">The RPC runs as SECURITY DEFINER</span>
+<span class="pk">or via service role — RLS may be bypassed.</span>
+
+<span class="pk">Affected tables</span>:
+  <span class="tbl">project</span>        → download_profiles <span class="pv">+= "user-alice-uuid"</span>
+  <span class="tbl">quest</span>     (x12) → download_profiles <span class="pv">+= "user-alice-uuid"</span>
+  <span class="tbl">asset</span>     (x48) → download_profiles <span class="pv">+= "user-alice-uuid"</span>
+  <span class="tbl">tag</span>       (x8)  → download_profiles <span class="pv">+= "user-alice-uuid"</span>
+  <span class="tbl">languoid</span>  (x3)  → download_profiles <span class="pv">+= "user-alice-uuid"</span>
+  <span class="tbl">vote</span>      (x96) → download_profiles <span class="pv">+= "user-alice-uuid"</span>
+  <span class="cm">... and all link tables</span>`
+          }
+        ]
+      },
+      {
+        title: 'WAL captures the download_profiles updates',
+        desc: 'Every row that got its <code>download_profiles</code> array modified generates a WAL event. PowerSync picks these up from the logical replication slot.',
+        packets: [
+          { dir: 'download', label: 'WAL stream (batch of updates)', body:
+`<span class="pk">lsn</span>:        <span class="pv">0/2C3D4E5F</span>
+<span class="pk">relation</span>:   <span class="pv">public.quest</span>
+<span class="pk">operation</span>:  <span class="pv">UPDATE</span>
+<span class="pk">old_tuple</span>:  { <span class="pk">"download_profiles"</span>: <span class="pe">["user-bob-uuid"]</span> }
+<span class="pk">new_tuple</span>:  { <span class="pk">"download_profiles"</span>: <span class="pv">["user-bob-uuid", "user-alice-uuid"]</span> }
+
+<span class="cm">× 167 similar UPDATE events across all tables</span>`
+          }
+        ]
+      },
+      {
+        title: 'Sync rules re-evaluate: Alice now matches',
+        desc: 'PowerSync re-evaluates sync rules for every updated row. Alice\'s <code>profile_id</code> is now in <code>download_profiles</code>, so all these rows are added to her bucket.',
+        packets: [
+          { dir: 'sync-eval', label: 'Sync rule re-evaluation', body:
+`<span class="pk">bucket</span>:  <span class="pv">user_profile</span>
+<span class="pk">query</span>:   SELECT * FROM quest
+         WHERE <span class="pp">bucket.profile_id</span> in download_profiles
+
+<span class="pk">BEFORE update</span>:
+  <span class="pp">"user-alice-uuid"</span> in <span class="pe">["user-bob-uuid"]</span>
+  → <span class="pe">✗ NO MATCH</span>
+
+<span class="pk">AFTER update</span>:
+  <span class="pp">"user-alice-uuid"</span> in <span class="pv">["user-bob-uuid", "user-alice-uuid"]</span>
+  → <span class="pv">✓ MATCH</span> → add to bucket user_profile[<span class="pv">"alice"</span>]
+
+<span class="pk">New rows entering Alice's bucket</span>:
+  <span class="pv">12</span> quests, <span class="pv">48</span> assets, <span class="pv">8</span> tags,
+  <span class="pv">96</span> votes, <span class="pv">3</span> languoids, <span class="pv">~50</span> links`
+          }
+        ]
+      },
+      {
+        title: 'Full project tree streams to the client',
+        desc: 'PowerSync streams all newly matched rows to Alice\'s device over the WebSocket connection. The client\'s SQLite database fills up with the entire project dependency tree. Content is now available offline.',
+        packets: [
+          { dir: 'download', label: 'WebSocket streaming sync (simplified)', body:
+`<span class="pk">bucket</span>: user_profile[<span class="pv">"user-alice-uuid"</span>]
+
+<span class="pk">op</span> <span class="pv">4822</span>: PUT <span class="tbl">project</span>   <span class="pv">"proj-swahili-uuid"</span>
+<span class="pk">op</span> <span class="pv">4823</span>: PUT <span class="tbl">quest</span>     <span class="pv">"quest-greetings-uuid"</span>
+<span class="pk">op</span> <span class="pv">4824</span>: PUT <span class="tbl">quest</span>     <span class="pv">"quest-numbers-uuid"</span>
+<span class="pk">op</span> <span class="pv">4825</span>: PUT <span class="tbl">asset</span>     <span class="pv">"asset-hello-uuid"</span>
+<span class="pk">op</span> <span class="pv">4826</span>: PUT <span class="tbl">asset</span>     <span class="pv">"asset-goodbye-uuid"</span>
+<span class="cm">... 200+ more PUT operations</span>
+<span class="pk">op</span> <span class="pv">5038</span>: PUT <span class="tbl">languoid</span>  <span class="pv">"lang-swahili-uuid"</span>
+
+<span class="pk">checkpoint</span>: <span class="pv">{ "last_op_id": 5038, "buckets_hash": "0xab12..." }</span>
+<span class="pw">Client marks initial sync complete for project</span>`
+          }
+        ]
+      }
+    ]
+  },
+  join: {
+    title: 'Accepting an Invite',
+    steps: [
+      {
+        title: 'User taps "Accept" on an invite notification',
+        desc: 'The app first updates the invite status to <code>accepted</code>, then creates (or reactivates) a <code>profile_project_link</code> row. Both operations go through separate RLS policies.',
+        packets: [
+          { dir: 'upload', label: 'ps_crud: update invite status', body:
+`<span class="pk">op</span>:     <span class="pv">PATCH</span>
+<span class="pk">table</span>:  <span class="pv">invite</span>
+<span class="pk">id</span>:     <span class="pv">"invite-xyz-uuid"</span>
+<span class="pk">data</span>:   {
+  <span class="pk">"status"</span>: <span class="pv">"accepted"</span>
+}`
+          },
+          { dir: 'upload', label: 'ps_crud: create membership link', body:
+`<span class="pk">op</span>:     <span class="pv">PUT</span>
+<span class="pk">table</span>:  <span class="pv">profile_project_link</span>
+<span class="pk">id</span>:     <span class="pv">"alice-uuid_proj-uuid"</span>
+<span class="pk">data</span>:   {
+  <span class="pk">"profile_id"</span>:  <span class="pv">"user-alice-uuid"</span>,
+  <span class="pk">"project_id"</span>:  <span class="pv">"proj-swahili-uuid"</span>,
+  <span class="pk">"membership"</span>:  <span class="pv">"member"</span>,
+  <span class="pk">"active"</span>:      <span class="pv">true</span>
+}`
+          }
+        ]
+      },
+      {
+        title: 'RLS evaluates the invite update',
+        desc: 'Postgres checks the RLS policy <code>"Receivers can only accept or decline invitations"</code>. Alice is the receiver, and "accepted" is an allowed status value. The update succeeds.',
+        packets: [
+          { dir: 'rls-check', label: 'RLS: invite UPDATE policy', body:
+`<span class="pk">policy</span>:  <span class="pv">"Receivers can only accept or decline invitations"</span>
+
+<span class="pk">USING check</span> (who can attempt):
+  receiver_profile_id = auth.uid()
+  <span class="pv">"user-alice-uuid"</span> = <span class="pv">"user-alice-uuid"</span> → <span class="pv">✓</span>
+
+<span class="pk">WITH CHECK</span> (what values are allowed):
+  receiver_profile_id = auth.uid()  → <span class="pv">✓</span>
+  AND status IN ('accepted', 'declined')
+  <span class="pv">'accepted'</span> IN (<span class="pv">'accepted'</span>, <span class="pv">'declined'</span>) → <span class="pv">✓</span>
+
+<span class="pk">result</span>: <span class="pv">✓ ALLOWED</span>`
+          }
+        ]
+      },
+      {
+        title: 'RLS evaluates the membership INSERT',
+        desc: 'This is the complex policy. Postgres checks <code>"Enable insert for valid project memberships only"</code>. It verifies Case 2: the user has an accepted invite for this project.',
+        packets: [
+          { dir: 'rls-check', label: 'RLS: profile_project_link INSERT policy', body:
+`<span class="pk">policy</span>:  <span class="pv">"Enable insert for valid project memberships only"</span>
+
+<span class="pk">Case 1</span> (project creator): <span class="pe">✗ SKIP</span>
+  Alice is not the creator of this project
+
+<span class="pk">Case 2</span> (accepted invite): <span class="pv">✓ MATCH</span>
+  profile_id = auth.uid()  → <span class="pv">✓</span>
+  AND EXISTS (
+    SELECT 1 FROM invite
+    WHERE project_id = <span class="pv">'proj-swahili-uuid'</span>
+    AND receiver_profile_id = <span class="pv">'user-alice-uuid'</span>
+    AND status = <span class="pv">'accepted'</span>    → <span class="pv">✓ just updated</span>
+    AND active = <span class="pv">true</span>
+  )
+
+<span class="pk">Case 3</span> (accepted request): <span class="pe">✗ SKIP</span>
+
+<span class="pk">result</span>: <span class="pv">✓ ALLOWED via Case 2</span>`
+          }
+        ]
+      },
+      {
+        title: 'Sync rules pick up new membership',
+        desc: 'The new <code>profile_project_link</code> row flows through the WAL. The sync rule for <code>profile_project_link</code> matches because Alice\'s <code>profile_id</code> equals <code>bucket.profile_id</code>. Her device gets the membership record.',
+        packets: [
+          { dir: 'sync-eval', label: 'Sync rule: profile_project_link', body:
+`<span class="pk">bucket</span>:  <span class="pv">user_profile</span>
+<span class="pk">query</span>:   SELECT profile_id || '_' || project_id as id, *
+         FROM profile_project_link
+         WHERE profile_project_link.profile_id = <span class="pp">bucket.profile_id</span>
+         AND active = true
+
+<span class="pk">evaluate</span>:
+  profile_id = <span class="pv">"user-alice-uuid"</span>
+  <span class="pp">bucket.profile_id</span> = <span class="pv">"user-alice-uuid"</span>
+  → <span class="pv">✓ MATCH</span>
+  active = true → <span class="pv">✓</span>`
+          },
+          { dir: 'sync-eval', label: 'Sync rule: project_memberships bucket', body:
+`<span class="pk">bucket</span>:  <span class="pv">project_memberships</span>
+<span class="pk">parameters</span>:
+  SELECT project_id FROM profile_project_link
+  WHERE profile_id = request.user_id() AND active = true
+
+<span class="pk">result</span>:  New parameter value <span class="pv">"proj-swahili-uuid"</span>
+         → new bucket instance created
+         → project data + invites start syncing`
+          }
+        ]
+      },
+      {
+        title: 'Co-member profiles stream via Sync Stream',
+        desc: 'The <code>co_member_profiles</code> stream (edition 2 hybrid) detects that Alice now has an active membership. Profiles of other project members start syncing to Alice\'s device.',
+        packets: [
+          { dir: 'download', label: 'Sync Stream: co_member_profiles', body:
+`<span class="pk">stream</span>:  <span class="pv">co_member_profiles</span> (auto_subscribe: true)
+<span class="pk">query</span>:
+  SELECT * FROM profile
+  WHERE id IN (
+    SELECT profile_id FROM profile_project_link
+    WHERE <span class="fn">auth.user_id()</span> in download_profiles
+    AND active = true
+  )
+  AND active = true
+
+<span class="pk">new profiles syncing to Alice</span>:
+  <span class="pv">PUT</span> profile <span class="pv">"user-bob-uuid"</span>   (project owner)
+  <span class="pv">PUT</span> profile <span class="pv">"user-carol-uuid"</span> (fellow member)
+
+<span class="pw">These profiles let Alice see usernames</span>
+<span class="pw">and avatars of her co-members.</span>`
+          }
+        ]
+      }
+    ]
+  },
+  global: {
+    title: 'Global Languoid Sync',
+    steps: [
+      {
+        title: 'Admin marks a languoid as ui_ready',
+        desc: 'An admin updates a languoid record in Postgres, setting <code>ui_ready = true</code>. This could be via the Supabase dashboard, a migration, or an admin API.',
+        packets: [
+          { dir: 'upload', label: 'Admin update (direct SQL or dashboard)', body:
+`<span class="pk">UPDATE</span> <span class="tbl">languoid</span>
+<span class="pk">SET</span>    ui_ready = <span class="pv">true</span>
+<span class="pk">WHERE</span>  id = <span class="pv">'lang-yoruba-uuid'</span>;
+
+<span class="pw">This bypasses PowerSync entirely — it's a</span>
+<span class="pw">direct Postgres operation, not a client write.</span>
+<span class="pw">RLS may apply depending on the role used.</span>`
+          }
+        ]
+      },
+      {
+        title: 'WAL captures the update',
+        desc: 'The change hits the WAL. PowerSync picks it up from the logical replication slot.',
+        packets: [
+          { dir: 'download', label: 'WAL replication event', body:
+`<span class="pk">lsn</span>:        <span class="pv">0/3E4F5A6B</span>
+<span class="pk">relation</span>:   <span class="pv">public.languoid</span>
+<span class="pk">operation</span>:  <span class="pv">UPDATE</span>
+<span class="pk">key</span>:        <span class="pv">"lang-yoruba-uuid"</span>
+<span class="pk">changed</span>:    { <span class="pk">"ui_ready"</span>: <span class="pe">false</span> → <span class="pv">true</span> }`
+          }
+        ]
+      },
+      {
+        title: 'Global bucket matches — no user filter needed',
+        desc: 'The <code>global_bucket</code> has no parameter query, so it creates exactly one bucket shared by all users. The sync rule simply checks <code>active = true AND ui_ready = true</code>.',
+        packets: [
+          { dir: 'sync-eval', label: 'Sync rule: global_bucket (Sync Rules)', body:
+`<span class="pk">bucket</span>:  <span class="pv">global_bucket</span>  (no parameters → 1 bucket for all)
+<span class="pk">query</span>:   SELECT * FROM languoid
+         WHERE active = true AND ui_ready = true
+
+<span class="pk">evaluate</span>:
+  active = <span class="pv">true</span>   → <span class="pv">✓</span>
+  ui_ready = <span class="pv">true</span> → <span class="pv">✓</span> (just changed!)
+  → <span class="pv">ADD</span> to global_bucket`
+          },
+          { dir: 'sync-eval', label: 'Equivalent Sync Stream', body:
+`<span class="pk">stream</span>:  <span class="pv">ui_languoids</span>  (auto_subscribe: true)
+<span class="pk">query</span>:   SELECT * FROM languoid
+         WHERE active = true AND ui_ready = true
+
+<span class="pw">Identical SQL, but clients auto-subscribe.</span>
+<span class="pw">No parameter query needed — same behavior.</span>`
+          }
+        ]
+      },
+      {
+        title: 'Every connected client receives the new languoid',
+        desc: 'Since the global bucket is synced to all users, every connected client receives this update via their WebSocket connection. Users who are offline will get it on their next sync.',
+        packets: [
+          { dir: 'download', label: 'WebSocket broadcast to all clients', body:
+`<span class="pk">bucket</span>: <span class="pv">global_bucket</span>  (shared by all users)
+
+<span class="pk">op</span> <span class="pv">892</span>: PUT <span class="tbl">languoid</span> <span class="pv">"lang-yoruba-uuid"</span>
+<span class="pk">data</span>:  {
+  <span class="pk">"id"</span>:        <span class="pv">"lang-yoruba-uuid"</span>,
+  <span class="pk">"name"</span>:      <span class="pv">"Yoruba"</span>,
+  <span class="pk">"iso639_3"</span>:  <span class="pv">"yor"</span>,
+  <span class="pk">"active"</span>:    <span class="pv">true</span>,
+  <span class="pk">"ui_ready"</span>:  <span class="pv">true</span>
+}
+
+<span class="pk">recipients</span>: <span class="pv">ALL connected clients</span>
+<span class="pw">Offline clients sync on reconnect via</span>
+<span class="pw">delta sync from their last checkpoint.</span>`
+          }
+        ]
+      }
+    ]
+  }
+};
+
+let activeScenario = null;
+let activeStep = 0;
+
+function pickScenario(id) {
+  document.querySelectorAll('.scenario-card').forEach(c => c.classList.remove('active'));
+  if (activeScenario === id) {
+    activeScenario = null;
+    document.getElementById('scenario-detail').classList.remove('visible');
+    document.getElementById('scenario-detail').innerHTML = '';
+    return;
+  }
+  activeScenario = id;
+  activeStep = 0;
+  document.getElementById('sc-' + id).classList.add('active');
+  renderScenario();
+}
+
+function renderScenario() {
+  const sc = SCENARIOS[activeScenario];
+  const el = document.getElementById('scenario-detail');
+
+  let html = `<div class="subsection-title" style="margin-bottom:12px">
+    <span class="dot" style="background:var(--pink)"></span> ${sc.title}
+  </div>
+  <div class="step-timeline">`;
+
+  sc.steps.forEach((step, i) => {
+    const isActive = i === activeStep;
+    const isCompleted = i < activeStep;
+    html += `<div class="timeline-step ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}" onclick="goStep(${i})">
+      <div class="step-header">${i + 1}. ${step.title}</div>
+      <div class="step-body">
+        <p>${step.desc}</p>`;
+
+    if (step.packets) {
+      step.packets.forEach(pkt => {
+        html += `<div class="packet-inspector">
+          <div class="packet-header">
+            <span class="packet-direction ${pkt.dir}">${pkt.dir.replace('-', ' ')}</span>
+            <span class="packet-label">${pkt.label}</span>
+          </div>
+          <div class="packet-body">${pkt.body}</div>
+        </div>`;
+      });
+    }
+
+    html += `</div></div>`;
+  });
+
+  html += `</div>
+  <div style="display:flex;gap:8px;margin-top:16px">
+    <button class="tab" onclick="goStep(activeStep - 1)" ${activeStep === 0 ? 'disabled style="opacity:.3;pointer-events:none"' : ''}>← Back</button>
+    <button class="tab" style="background:var(--border);color:var(--text)" onclick="goStep(activeStep + 1)">${activeStep >= sc.steps.length - 1 ? 'Done ✓' : 'Next Step →'}</button>
+    <span style="font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--text-dim);display:flex;align-items:center;margin-left:auto">Step ${activeStep + 1} of ${sc.steps.length}</span>
+  </div>`;
+
+  el.innerHTML = html;
+  el.classList.add('visible');
+
+  const activeEl = el.querySelector('.timeline-step.active');
+  if (activeEl) {
+    activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+function goStep(idx) {
+  if (!activeScenario) return;
+  const sc = SCENARIOS[activeScenario];
+  if (idx < 0) return;
+  if (idx >= sc.steps.length) {
+    pickScenario(activeScenario);
+    return;
+  }
+  activeStep = idx;
+  renderScenario();
+}
+
+document.addEventListener('keydown', e => {
+  if (!activeScenario) return;
+  if (e.key === 'ArrowRight' || e.key === 'ArrowDown') { e.preventDefault(); goStep(activeStep + 1); }
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') { e.preventDefault(); goStep(activeStep - 1); }
+  if (e.key === 'Escape') pickScenario(activeScenario);
+});
+</script>
+</body>
+</html>
