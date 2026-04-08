@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LangQuest — Migration Process</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #08080e; --card: #10101a; --border: #1a1a2e; --border-hi: #2a2a44;
+  --text: #d4d4e8; --text-muted: #6a6a8a; --text-dim: #3a3a5a;
+  --cyan: #22d3ee; --purple: #a78bfa; --green: #34d399; --pink: #f472b6;
+  --amber: #fbbf24; --red: #f87171;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',system-ui,sans-serif;overflow:hidden;height:100vh;display:flex;flex-direction:column}
+
+.header{display:flex;align-items:center;justify-content:space-between;padding:8px 20px;border-bottom:1px solid var(--border);flex-shrink:0;background:#0c0c14;z-index:50;gap:12px}
+.header-left h1{font-size:.95rem;font-weight:600}
+.header-left .subtitle{font-family:'JetBrains Mono',monospace;font-size:.52rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.12em;margin-top:1px}
+.controls{display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:nowrap}
+.ctrl-btn{font-family:'JetBrains Mono',monospace;font-size:.62rem;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text-muted);cursor:pointer;transition:all .2s;white-space:nowrap}
+.ctrl-btn:hover{border-color:var(--border-hi);color:var(--text)}
+.ctrl-btn:active{transform:scale(.97)}
+.ctrl-btn.active-scenario{border-color:var(--pink);color:var(--pink);background:#f472b60a}
+.ctrl-sep{width:1px;height:20px;background:var(--border);margin:0 2px}
+
+.diagram-viewport{flex:1;display:flex;align-items:flex-start;justify-content:center;overflow:hidden;padding-top:8px}
+.diagram{width:1400px;height:750px;position:relative;flex-shrink:0}
+.paths-svg{position:absolute;inset:0;width:100%;height:100%;z-index:1}
+#packetCanvas{position:absolute;inset:0;width:1400px;height:750px;pointer-events:none;z-index:10}
+
+.flow-path{fill:none;stroke:#ffffff12;stroke-width:3;stroke-linecap:round;transition:stroke .4s,stroke-width .3s,filter .4s}
+.flow-path.step-active{stroke-width:4;filter:drop-shadow(0 0 5px var(--glow,#fff3))}
+.path-label{font-family:'JetBrains Mono',monospace;font-size:8.5px;fill:#ffffff00;text-anchor:middle;pointer-events:none;transition:fill .4s}
+.path-label.visible{fill:#ffffff35}
+.zone-label{font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.25em;fill:#ffffff06;text-anchor:middle;text-transform:uppercase;pointer-events:none}
+.zone-line{stroke:#ffffff06;stroke-dasharray:8 12}
+
+.node{position:absolute;width:190px;height:58px;border-radius:10px;border:1px solid var(--border);background:var(--card);display:flex;flex-direction:column;justify-content:center;padding:0 14px;cursor:grab;z-index:15;transition:border-color .3s,box-shadow .4s;user-select:none}
+.node:hover{border-color:var(--border-hi)}
+.node.dragging{cursor:grabbing;z-index:25;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+.node .badge{position:absolute;top:6px;right:8px;font-family:'JetBrains Mono',monospace;font-size:.48rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em}
+.node .name{font-family:'JetBrains Mono',monospace;font-size:.73rem;font-weight:600;line-height:1.2}
+.node .desc{font-size:.62rem;color:var(--text-muted);margin-top:2px}
+.node.dev-node .name{color:var(--amber)}
+.node.server-node .name{color:var(--green)}
+.node.client-node .name{color:var(--cyan)}
+.node.ext-node .name{color:var(--pink)}
+.node.pulse-cyan{animation:pulseC .7s ease}
+.node.pulse-green{animation:pulseG .7s ease}
+.node.pulse-purple{animation:pulseP .7s ease}
+.node.pulse-pink{animation:pulsePk .7s ease}
+.node.pulse-amber{animation:pulseA .7s ease}
+.node.pulse-red{animation:pulseR .7s ease}
+@keyframes pulseC{0%,100%{box-shadow:none}40%{box-shadow:0 0 24px #22d3ee30,inset 0 0 16px #22d3ee08;border-color:#22d3ee50}}
+@keyframes pulseG{0%,100%{box-shadow:none}40%{box-shadow:0 0 24px #34d39930,inset 0 0 16px #34d39908;border-color:#34d39950}}
+@keyframes pulseP{0%,100%{box-shadow:none}40%{box-shadow:0 0 24px #a78bfa30,inset 0 0 16px #a78bfa08;border-color:#a78bfa50}}
+@keyframes pulsePk{0%,100%{box-shadow:none}40%{box-shadow:0 0 24px #f472b630,inset 0 0 16px #f472b608;border-color:#f472b650}}
+@keyframes pulseA{0%,100%{box-shadow:none}40%{box-shadow:0 0 24px #fbbf2430,inset 0 0 16px #fbbf2408;border-color:#fbbf2450}}
+@keyframes pulseR{0%,100%{box-shadow:none}40%{box-shadow:0 0 24px #f8717130,inset 0 0 16px #f8717108;border-color:#f8717150}}
+
+.step-panel{position:fixed;bottom:16px;left:50%;transform:translateX(-50%) translateY(calc(100% + 24px));width:640px;max-width:calc(100vw - 32px);background:#12121af0;border:1px solid var(--border-hi);border-radius:14px;padding:18px 22px 16px;z-index:100;backdrop-filter:blur(16px);box-shadow:0 -8px 40px rgba(0,0,0,.5);transition:transform .35s cubic-bezier(.4,0,.2,1)}
+.step-panel.open{transform:translateX(-50%) translateY(0)}
+.step-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.scenario-badge{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--pink);text-transform:uppercase;letter-spacing:.1em}
+.step-count{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--text-dim)}
+.step-title{font-size:.92rem;font-weight:600;margin-bottom:6px}
+.step-desc{font-size:.78rem;color:var(--text-muted);line-height:1.6;margin-bottom:14px}
+.step-desc code{font-family:'JetBrains Mono',monospace;font-size:.68rem;background:#ffffff08;padding:1px 5px;border-radius:3px;color:var(--pink)}
+.step-desc .warn{color:var(--amber);font-weight:500}
+.step-nav{display:flex;justify-content:space-between;align-items:center}
+.step-btn{font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text-muted);cursor:pointer;transition:all .2s}
+.step-btn:hover{border-color:var(--border-hi);color:var(--text)}
+.step-btn.primary{border-color:var(--pink);color:var(--pink);background:#f472b60a}
+.step-btn.primary:hover{background:#f472b615}
+.step-btn:disabled{opacity:.3;pointer-events:none}
+.close-scenario{background:none;border:1px solid var(--border);color:var(--text-dim);width:24px;height:24px;border-radius:6px;cursor:pointer;font-size:.85rem;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.close-scenario:hover{border-color:var(--border-hi);color:var(--text)}
+
+.tooltip{position:absolute;z-index:200;background:#161622ee;border:1px solid var(--border-hi);border-radius:10px;padding:12px 16px;max-width:280px;pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .2s,transform .2s;backdrop-filter:blur(12px);box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.tooltip.visible{opacity:1;transform:translateY(0)}
+.tooltip .tt-name{font-family:'JetBrains Mono',monospace;font-size:.75rem;font-weight:600;margin-bottom:5px}
+.tooltip .tt-desc{font-size:.72rem;color:var(--text-muted);line-height:1.55}
+.tooltip .tt-file{font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--text-dim);margin-top:6px}
+.tooltip code{font-family:'JetBrains Mono',monospace;font-size:.65rem;background:#ffffff08;padding:1px 4px;border-radius:3px;color:var(--pink)}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-left">
+    <h1>Migration Process</h1>
+    <div class="subtitle">LangQuest · Schema Versioning + Backward Compatibility</div>
+  </div>
+  <div class="controls">
+    <button class="ctrl-btn" id="btn-deploy" onclick="startScenario('deploy')">↗ Deploy</button>
+    <button class="ctrl-btn" id="btn-appUpdate" onclick="startScenario('appUpdate')">↻ App Update</button>
+    <button class="ctrl-btn" id="btn-upload" onclick="startScenario('upload')">↑ Upload</button>
+    <button class="ctrl-btn" id="btn-compat" onclick="startScenario('compat')">⇌ Compat</button>
+    <button class="ctrl-btn" id="btn-checklist" onclick="startScenario('checklist')">☐ Checklist</button>
+    <div class="ctrl-sep"></div>
+    <button class="ctrl-btn" onclick="resetLayout()" title="Reset node positions">⟲</button>
+  </div>
+</div>
+
+<div class="diagram-viewport">
+  <div class="diagram" id="diagram">
+    <svg class="paths-svg" id="pathsSvg" viewBox="0 0 1400 750" preserveAspectRatio="xMidYMid meet">
+      <text x="400" y="28" class="zone-label">Server / CI Pipeline</text>
+      <text x="400" y="738" class="zone-label">Client / Device</text>
+      <line x1="30" y1="340" x2="1370" y2="340" class="zone-line"/>
+      <g id="pathGroup"></g>
+      <g id="labelGroup"></g>
+    </svg>
+    <canvas id="packetCanvas"></canvas>
+
+    <div class="node dev-node" id="node-gitRepo" data-info="gitRepo">
+      <span class="badge">Source</span><div class="name">Git Repository</div><div class="desc">Migration files</div>
+    </div>
+    <div class="node dev-node" id="node-cicd" data-info="cicd">
+      <span class="badge">Pipeline</span><div class="name">CI/CD Pipeline</div><div class="desc">Auto-apply on merge</div>
+    </div>
+    <div class="node server-node" id="node-sbMigrations" data-info="sbMigrations">
+      <span class="badge">Postgres</span><div class="name">SQL Migrations</div><div class="desc">Timestamped DDL files</div>
+    </div>
+    <div class="node server-node" id="node-postgres" data-info="postgres">
+      <span class="badge">Database</span><div class="name">Postgres Tables</div><div class="desc">Production source of truth</div>
+    </div>
+    <div class="node server-node" id="node-schemaInfo" data-info="schemaInfo">
+      <span class="badge">RPC</span><div class="name">get_schema_info()</div><div class="desc">Version + compatibility</div>
+    </div>
+    <div class="node server-node" id="node-transformRpc" data-info="transformRpc">
+      <span class="badge">RPC</span><div class="name">Transform RPC</div><div class="desc">Version-aware transforms</div>
+    </div>
+    <div class="node ext-node" id="node-website" data-info="website">
+      <span class="badge">External</span><div class="name">LangQuest Website</div><div class="desc">Separate web app</div>
+    </div>
+    <div class="node client-node" id="node-connector" data-info="connector">
+      <span class="badge">Client</span><div class="name">SupabaseConnector</div><div class="desc">Upload data handler</div>
+    </div>
+    <div class="node client-node" id="node-versionCheck" data-info="versionCheck">
+      <span class="badge">Client</span><div class="name">Version Check</div><div class="desc">APP vs server version</div>
+    </div>
+    <div class="node client-node" id="node-psCrud" data-info="psCrud">
+      <span class="badge">Queue</span><div class="name">ps_crud Queue</div><div class="desc">Pending upload ops</div>
+    </div>
+    <div class="node client-node" id="node-synced" data-info="synced">
+      <span class="badge">SQLite</span><div class="name">Synced Tables</div><div class="desc">*_synced with metadata</div>
+    </div>
+    <div class="node client-node" id="node-localData" data-info="localData">
+      <span class="badge">SQLite</span><div class="name">Local-Only Tables</div><div class="desc">*_local with _metadata</div>
+    </div>
+    <div class="node client-node" id="node-migRunner" data-info="migRunner">
+      <span class="badge">Client</span><div class="name">Migration Runner</div><div class="desc">Version chain executor</div>
+    </div>
+    <div class="node client-node" id="node-appStore" data-info="appStore">
+      <span class="badge">External</span><div class="name">App Store</div><div class="desc">Non-deterministic update</div>
+    </div>
+  </div>
+</div>
+
+<div class="step-panel" id="stepPanel">
+  <div class="step-meta">
+    <span class="scenario-badge" id="scenarioName"></span>
+    <span class="step-count" id="stepCount"></span>
+    <button class="close-scenario" onclick="endScenario()">×</button>
+  </div>
+  <div class="step-title" id="stepTitle"></div>
+  <div class="step-desc" id="stepDesc"></div>
+  <div class="step-nav">
+    <button class="step-btn" id="prevBtn" onclick="prevStep()">← Back</button>
+    <button class="step-btn primary" id="nextBtn" onclick="nextStep()">Next Step →</button>
+  </div>
+</div>
+<div class="tooltip" id="tooltip"><div class="tt-name" id="ttName"></div><div class="tt-desc" id="ttDesc"></div><div class="tt-file" id="ttFile"></div></div>
+
+<script>
+// ═══════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════
+const HW = 95, HH = 29, CORNER_R = 14, PACKET_SPEED = 280;
+
+const DEFAULT_NODES = {
+  gitRepo:      {cx:130, cy:90},
+  cicd:         {cx:350, cy:90},
+  sbMigrations: {cx:580, cy:90},
+  postgres:     {cx:840, cy:90},
+  schemaInfo:   {cx:1120, cy:90},
+  transformRpc: {cx:580, cy:255},
+  website:      {cx:1120, cy:255},
+  connector:    {cx:350, cy:440},
+  versionCheck: {cx:1120, cy:440},
+  psCrud:       {cx:130, cy:600},
+  synced:       {cx:350, cy:600},
+  localData:    {cx:610, cy:600},
+  migRunner:    {cx:840, cy:600},
+  appStore:     {cx:1120, cy:600},
+};
+
+const CONNECTIONS = [
+  {id:'gitToCI',     from:'gitRepo',      fe:'right', to:'cicd',         te:'left'},
+  {id:'ciToMig',     from:'cicd',         fe:'right', to:'sbMigrations', te:'left'},
+  {id:'migToDB',     from:'sbMigrations', fe:'right', to:'postgres',     te:'left'},
+  {id:'dbToInfo',    from:'postgres',     fe:'right', to:'schemaInfo',   te:'left'},
+  {id:'rpcToDB',     from:'transformRpc', fe:'right', to:'postgres',     te:'bottom'},
+  {id:'connToRPC',   from:'connector',    fe:'top',   to:'transformRpc', te:'bottom'},
+  {id:'toConn',      from:'psCrud',       fe:'top',   to:'connector',    te:'bottom'},
+  {id:'toQueue',     from:'synced',       fe:'left',  to:'psCrud',       te:'right'},
+  {id:'publish',     from:'localData',    fe:'left',  to:'synced',       te:'right'},
+  {id:'infoToCheck', from:'schemaInfo',   fe:'bottom',to:'versionCheck', te:'top'},
+  {id:'storeToCheck',from:'appStore',     fe:'top',   to:'versionCheck', te:'bottom'},
+  {id:'checkToMig',  from:'versionCheck', fe:'left',  to:'migRunner',    te:'top'},
+  {id:'migToLocal',  from:'migRunner',    fe:'left',  to:'localData',    te:'right'},
+];
+
+const PATH_LABELS = {
+  gitToCI:'merge PR', ciToMig:'auto-apply', migToDB:'DDL + functions', dbToInfo:'version info',
+  rpcToDB:'transform + DML', connToRPC:'supabase.rpc()', toConn:'drain queue',
+  toQueue:'mutation → queue', publish:'publish()', infoToCheck:'min_required check',
+  storeToCheck:'app update', checkToMig:'migration needed', migToLocal:'transform JSON',
+};
+
+const NODE_PULSE = {
+  gitRepo:'pulse-amber', cicd:'pulse-amber',
+  sbMigrations:'pulse-green', postgres:'pulse-green', schemaInfo:'pulse-green', transformRpc:'pulse-green',
+  website:'pulse-pink',
+  connector:'pulse-cyan', psCrud:'pulse-cyan', synced:'pulse-cyan', localData:'pulse-cyan',
+  migRunner:'pulse-cyan', versionCheck:'pulse-cyan', appStore:'pulse-cyan',
+};
+
+const PATH_DEST = {};
+CONNECTIONS.forEach(c => PATH_DEST[c.id] = c.to);
+
+// ═══════════════════════════════════════
+// SCENARIOS
+// ═══════════════════════════════════════
+const SCENARIOS = {
+  deploy: {
+    name:'Deploying Schema Changes',
+    steps:[
+      {title:'Developer writes migration files',
+       desc:'Three locations are updated: a timestamped SQL file in <code>supabase/migrations/</code>, a client migration in <code>db/migrations/</code>, and a version bump in <code>db/constants.ts</code>. The Drizzle schema and sync rules may also need changes.',
+       pulse:['gitRepo'],paths:[],labels:[],color:null},
+      {title:'PR merged to main branch',
+       desc:'After code review, the PR merges into <code>main</code>. The <code>validate-migrations.yml</code> workflow has already verified migration file integrity against the Supabase preview branch during the PR.',
+       pulse:['gitRepo','cicd'],paths:['gitToCI'],labels:['gitToCI'],color:'#fbbf24'},
+      {title:'Supabase auto-applies SQL migrations',
+       desc:'On merge to <code>main</code>, Supabase automatically applies all new timestamped migration files to the production database. This includes schema DDL, transform function updates, and the <code>get_schema_info()</code> bump.',
+       pulse:['sbMigrations','postgres'],paths:['ciToMig','migToDB'],labels:['ciToMig','migToDB'],color:'#34d399'},
+      {title:'get_schema_info() returns new version',
+       desc:'The migration file includes a <code>CREATE OR REPLACE</code> for <code>get_schema_info()</code>, bumping <code>schema_version</code> (e.g. to <code>2.3</code>) and optionally raising <code>min_required_schema_version</code> (e.g. <code>2.1</code>).',
+       pulse:['schemaInfo'],paths:['dbToInfo'],labels:['dbToInfo'],color:'#34d399'},
+      {title:'App release is non-deterministic',
+       desc:'<span class="warn">The database is now updated, but the new app version hasn\'t shipped yet.</span> App store review and user update timing are unpredictable. This gap is why backward compatibility is critical — the new schema must still serve older client versions.',
+       pulse:['appStore'],paths:[],labels:[],color:null},
+      {title:'Old clients get forced upgrade (if needed)',
+       desc:'On init, the app calls <code>checkAppUpgradeNeeded()</code> which compares <code>APP_SCHEMA_VERSION</code> against the server\'s <code>min_required_schema_version</code>. If the app is too old, <code>AppUpgradeNeededError</code> blocks usage until the user updates.',
+       pulse:['versionCheck','schemaInfo'],paths:['infoToCheck'],labels:['infoToCheck'],color:'#f87171'},
+    ]
+  },
+  appUpdate: {
+    name:'Local Data Migration',
+    steps:[
+      {title:'Old data persists on device',
+       desc:'The user has offline data in <code>*_local</code> SQLite tables, stamped with an older <code>_metadata.schema_version</code> (e.g. <code>1.0</code>). This data was written by the previous app version and hasn\'t been uploaded yet.',
+       pulse:['localData'],paths:[],labels:[],color:null},
+      {title:'New app detects outdated data',
+       desc:'On startup, <code>checkNeedsMigration()</code> scans all <code>*_local</code> raw PowerSync tables, extracting <code>_metadata.schema_version</code> from JSON. If any record has a version below <code>APP_SCHEMA_VERSION</code>, a <code>MigrationNeededError</code> is thrown.',
+       pulse:['versionCheck','localData'],paths:[],labels:[],color:null},
+      {title:'MigrationScreen blocks UI',
+       desc:'The <code>MigrationScreen</code> component displays a progress indicator, blocking the app until migration completes. Data integrity comes first — the app is unusable until all local data matches the current schema.',
+       pulse:['migRunner'],paths:[],labels:[],color:null},
+      {title:'Migration chain is built',
+       desc:'<code>findMigrationPath()</code> looks up the registered <code>migrations[]</code> array and builds a chain: e.g. <code>0.0→1.0→2.0→2.1→2.2→2.3</code>. Each step is a <code>Migration</code> object with <code>fromVersion</code>, <code>toVersion</code>, and a <code>migrate()</code> function.',
+       pulse:['migRunner'],paths:['checkToMig'],labels:['checkToMig'],color:'#22d3ee'},
+      {title:'Data transformed at JSON level',
+       desc:'Each <code>migration.migrate()</code> transforms local data by manipulating raw JSON in PowerSync tables — no temporary SQLite tables. This approach is forced by PowerSync\'s view-based architecture. After each step, <code>updateMetadataVersion()</code> stamps all records with the new version.',
+       pulse:['localData','migRunner'],paths:['migToLocal'],labels:['migToLocal'],color:'#22d3ee'},
+      {title:'App resumes with migrated data',
+       desc:'With all local data migrated to <code>APP_SCHEMA_VERSION</code>, the migration screen dismisses and the app becomes interactive. The data is now compatible with the latest Drizzle table definitions and ready for upload.',
+       pulse:['localData','synced'],paths:[],labels:[],color:null},
+    ]
+  },
+  upload: {
+    name:'Server-Side Upload Transform',
+    steps:[
+      {title:'Data stamped on write',
+       desc:'Every write to a <code>*_synced</code> table is automatically stamped with <code>_metadata.schema_version</code> via <code>getDefaultOpMetadata()</code>. The <code>trackMetadata: true</code> option (set during PowerSync schema init) ensures this metadata is preserved in CRUD entries.',
+       pulse:['synced'],paths:[],labels:[],color:null},
+      {title:'Metadata enters ps_crud queue',
+       desc:'PowerSync creates a CRUD entry carrying the <code>_metadata</code> field as <code>CrudEntry.metadata</code>. The metadata is stored as a JSON string containing <code>schema_version</code> — the version of the app that wrote the data.',
+       pulse:['psCrud'],paths:['toQueue'],labels:['toQueue'],color:'#22d3ee'},
+      {title:'SupabaseConnector reads metadata',
+       desc:'<code>uploadData()</code> reads <code>CrudEntry.metadata</code> (a JSON string from PowerSync\'s <code>trackMetadata</code>), parses it into <code>OpMetadata</code>, and maps it to <code>client_meta</code>. Missing metadata defaults to <code>schema_version: \'0\'</code> to force full transforms.',
+       pulse:['connector'],paths:['toConn'],labels:['toConn'],color:'#22d3ee'},
+      {title:'RPC receives ops with version info',
+       desc:'<code>apply_table_mutation_transaction</code> receives each op alongside <code>client_meta.schema_version</code>. The function inspects the version to determine which transform chain to apply.',
+       pulse:['transformRpc'],paths:['connToRPC'],labels:['connToRPC'],color:'#22d3ee'},
+      {title:'Version detection routes transforms',
+       desc:'The RPC checks the version: is it v0? Run <code>v0_to_v1 → v1_to_v2 → v2_1_to_v2_2</code>. Is it v1? Run <code>v1_to_v2 → v2_1_to_v2_2</code>. Pre-v2.2? Just <code>v2_1_to_v2_2</code>. v2.2+ passes through unchanged.',
+       pulse:['transformRpc'],paths:[],labels:[],color:null},
+      {title:'Transformed data applied to Postgres',
+       desc:'Each <code>v{X}_to_v{Y}()</code> PL/pgSQL function can add columns, rename fields, or split one op into multiple <code>mutation_op[]</code> entries. After all transforms, <code>_apply_single_json_dml()</code> executes the final ops inside a Postgres transaction.',
+       pulse:['transformRpc','postgres'],paths:['rpcToDB'],labels:['rpcToDB'],color:'#34d399'},
+    ]
+  },
+  compat: {
+    name:'Backward Compatibility',
+    steps:[
+      {title:'get_schema_info() returns three fields',
+       desc:'The RPC returns <code>{ schema_version, min_required_schema_version, notes }</code>. <code>schema_version</code> is the current DB version. <code>min_required_schema_version</code> is the oldest client version that can still sync correctly.',
+       pulse:['schemaInfo'],paths:[],labels:[],color:null},
+      {title:'Client checks on init',
+       desc:'<code>checkAppUpgradeNeeded()</code> fetches server schema info and compares <code>APP_SCHEMA_VERSION</code> against <code>min_required_schema_version</code>. A 2-second timeout prevents blocking offline users — if the server is unreachable, the app proceeds.',
+       pulse:['versionCheck'],paths:['infoToCheck'],labels:['infoToCheck'],color:'#a78bfa'},
+      {title:'Version meets minimum — proceed',
+       desc:'If <code>APP_SCHEMA_VERSION >= min_required_schema_version</code>, the app starts normally. The client may be behind <code>schema_version</code>, but that\'s fine — server-side transforms in <code>apply_table_mutation_transaction</code> bridge the gap for uploaded data.',
+       pulse:['versionCheck'],paths:[],labels:[],color:null},
+      {title:'Version too old — forced upgrade',
+       desc:'If <code>APP_SCHEMA_VERSION < min_required_schema_version</code>, an <code>AppUpgradeNeededError</code> blocks the app. The user must update from the app store. This only happens when backward compatibility can no longer be maintained.',
+       pulse:['versionCheck','appStore'],paths:['storeToCheck'],labels:['storeToCheck'],color:'#f87171'},
+      {title:'Grace period by design',
+       desc:'<code>min_required</code> can be lower than <code>schema_version</code>, creating a grace period. Deploy the migration, wait for adoption, then raise the minimum. Example: server at v2.3, min_required at v2.1 — apps at v2.1 and v2.2 still work.',
+       pulse:['schemaInfo','postgres'],paths:['dbToInfo'],labels:['dbToInfo'],color:'#34d399'},
+      {title:'Transforms bridge the gap',
+       desc:'During the grace period, server-side transforms handle older data on upload, and client-side migrations handle local data on app update. Both systems work independently — data flows correctly regardless of client version.',
+       pulse:['transformRpc','migRunner'],paths:['connToRPC','checkToMig'],labels:['connToRPC','checkToMig'],color:'#a78bfa'},
+    ]
+  },
+  checklist: {
+    name:'Developer Checklist',
+    steps:[
+      {title:'1. Timestamped SQL migration file',
+       desc:'Create <code>supabase/migrations/YYYYMMDDHHMMSS_description.sql</code>. Run <code>npm run supabase db diff -- -f "description"</code> to generate the file, then manually add RPC updates, transform functions, and <code>get_schema_info()</code> bump.',
+       pulse:['sbMigrations'],paths:[],labels:[],color:null},
+      {title:'2. Server transform functions',
+       desc:'If the schema change affects data shape (new columns, renames, type changes), add a <code>v{X}_to_v{Y}()</code> PL/pgSQL function. This takes and returns <code>mutation_op[]</code> — it can add defaults, split ops, or restructure records.',
+       pulse:['transformRpc'],paths:[],labels:[],color:null},
+      {title:'3. Update RPC transform chain',
+       desc:'In <code>apply_table_mutation</code>, add a <code>v_version_is_...</code> boolean and extend the <code>IF/ELSIF</code> chain. Do the same in <code>apply_table_mutation_transaction</code>. The chain must be updated in the same SQL migration file.',
+       pulse:['transformRpc'],paths:[],labels:[],color:null},
+      {title:'4. Bump get_schema_info()',
+       desc:'In the same migration file, <code>CREATE OR REPLACE</code> the <code>get_schema_info()</code> function. Bump <code>schema_version</code> and set <code>min_required_schema_version</code> appropriately. Add descriptive <code>notes</code>.',
+       pulse:['schemaInfo'],paths:[],labels:[],color:null},
+      {title:'5. Client migration file',
+       desc:'Create <code>db/migrations/X.X-to-Y.Y.ts</code> implementing the <code>Migration</code> interface: <code>fromVersion</code>, <code>toVersion</code>, <code>description</code>, and <code>migrate(db, onProgress)</code>. Transform data using raw JSON queries on PowerSync tables.',
+       pulse:['migRunner'],paths:[],labels:[],color:null},
+      {title:'6. Register in migration array',
+       desc:'Import and add the new migration to the <code>migrations[]</code> array in <code>db/migrations/index.ts</code>. Order matters — migrations run sequentially from oldest to newest. Follow the existing naming pattern.',
+       pulse:['migRunner'],paths:[],labels:[],color:null},
+      {title:'7. Bump APP_SCHEMA_VERSION',
+       desc:'Update <code>APP_SCHEMA_VERSION</code> in <code>db/constants.ts</code>. This single constant drives local migration detection, <code>_metadata</code> stamping via <code>getDefaultOpMetadata()</code>, and server compatibility checks.',
+       pulse:['versionCheck','localData','synced'],paths:[],labels:[],color:null},
+      {title:'8. Update Drizzle schema',
+       desc:'Update table/column definitions in <code>db/drizzleSchema*.ts</code> (synced: <code>drizzleSchema.ts</code> / <code>drizzleSchemaSynced.ts</code>, local: <code>drizzleSchemaLocal.ts</code>, shared: <code>drizzleSchemaColumns.ts</code>).',
+       pulse:['localData','synced'],paths:[],labels:[],color:null},
+      {title:'9. Update sync rules (if needed)',
+       desc:'If new tables or columns need syncing, update <code>supabase/config/sync-rules.yml</code>. New tables also need <code>ALTER PUBLICATION "powersync" ADD TABLE</code> in the SQL migration file.',
+       pulse:['synced'],paths:[],labels:[],color:null},
+      {title:'10. Update the website',
+       desc:'The LangQuest website is a separate application that interacts with the same Postgres database. It must be updated to handle any new columns, changed types, or new tables introduced by the migration.',
+       pulse:['website'],paths:[],labels:[],color:null},
+    ]
+  }
+};
+
+const NODE_INFO = {
+  gitRepo:{name:'Git Repository',desc:'Migration files live in three locations: <code>supabase/migrations/*.sql</code> for server DDL + transforms, <code>db/migrations/*.ts</code> for client transforms, and <code>db/constants.ts</code> for <code>APP_SCHEMA_VERSION</code>.',file:'supabase/migrations/ · db/migrations/'},
+  cicd:{name:'CI/CD Pipeline',desc:'On merge to <code>main</code>, Supabase auto-applies SQL migrations to production. <code>validate-migrations.yml</code> checks migration file integrity on PRs by comparing against the Supabase preview branch.',file:'.github/workflows/validate-migrations.yml'},
+  sbMigrations:{name:'SQL Migrations',desc:'Timestamped files: <code>YYYYMMDDHHMMSS_description.sql</code>. Contain schema DDL, <code>v{X}_to_v{Y}()</code> transform functions, version detection chain updates, and <code>get_schema_info()</code> bumps.',file:'supabase/migrations/'},
+  postgres:{name:'Postgres Tables',desc:'Production source of truth. Updated by Supabase migrations on merge. Both the mobile app (via PowerSync) and the website connect to these tables.',file:'supabase/migrations/'},
+  schemaInfo:{name:'get_schema_info()',desc:'Returns <code>{ schema_version, min_required_schema_version, notes }</code>. Currently: version <code>2.3</code>, min required <code>2.1</code>. Clients call this on init to check if they\'re compatible.',file:'supabase/migrations/'},
+  transformRpc:{name:'apply_table_mutation_transaction',desc:'Receives uploaded ops with <code>client_meta.schema_version</code>. Chains: <code>v0_to_v1</code> → <code>v1_to_v2</code> → <code>v2_1_to_v2_2</code>. Each transform can restructure the <code>mutation_op[]</code> array.',file:'supabase/migrations/'},
+  website:{name:'LangQuest Website',desc:'A separate web application that reads from and writes to the same Postgres database. Must be updated alongside the mobile app when schema changes ship.',file:'(separate repository)'},
+  connector:{name:'SupabaseConnector · uploadData()',desc:'Reads <code>CrudEntry.metadata</code> — a JSON string from PowerSync\'s <code>trackMetadata</code> — parses to <code>OpMetadata</code>, maps to <code>client_meta</code> for the RPC. Defaults missing metadata to version <code>0</code>.',file:'db/supabase/SupabaseConnector.ts'},
+  versionCheck:{name:'Schema Version Check',desc:'<code>checkAppUpgradeNeeded()</code> compares <code>APP_SCHEMA_VERSION</code> against server\'s <code>min_required_schema_version</code>. 2-second timeout for offline resilience. Also: <code>checkNeedsMigration()</code> for local data.',file:'db/schemaVersionService.ts'},
+  psCrud:{name:'ps_crud Queue',desc:'PowerSync internal upload queue. With <code>trackMetadata: true</code>, each CRUD entry carries <code>_metadata</code> including <code>schema_version</code>. The version stays with the data through the entire upload pipeline.',file:'PowerSync internal'},
+  synced:{name:'Synced Tables',desc:'<code>*_synced</code> views managed by PowerSync with <code>trackMetadata: true</code>. The <code>stamp()</code> function in <code>system.ts</code> writes <code>_metadata.schema_version</code> on every insert/update via a Drizzle proxy.',file:'db/powersync/system.ts'},
+  localData:{name:'Local-Only Tables',desc:'<code>*_local</code> SQLite tables. Data is stamped with <code>_metadata.schema_version</code> via <code>getDefaultOpMetadata()</code>. Client migrations operate on raw JSON — no temp tables — due to PowerSync\'s view architecture.',file:'db/drizzleSchemaLocal.ts'},
+  migRunner:{name:'Migration Runner',desc:'<code>findMigrationPath()</code> chains registered migrations. <code>runMigrations()</code> executes them sequentially with progress callbacks. After each step, <code>updateMetadataVersion()</code> stamps all records.',file:'db/migrations/index.ts'},
+  appStore:{name:'App Store / Update',desc:'App distribution is non-deterministic — store review and user update timing are unpredictable. The database may be updated days before users receive the new app version.',file:'(external)'},
+};
+
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let nodes = {};
+let pathElements = {}, pathLengths = {};
+let packets = [], lastTs = 0;
+let dragState = null;
+let currentScenario = null, currentStepIdx = 0, stepInterval = null;
+
+// ═══════════════════════════════════════
+// PATH ROUTING
+// ═══════════════════════════════════════
+function edgePoint(n, edge) {
+  switch(edge) {
+    case 'top':    return [n.cx, n.cy - HH];
+    case 'bottom': return [n.cx, n.cy + HH];
+    case 'left':   return [n.cx - HW, n.cy];
+    case 'right':  return [n.cx + HW, n.cy];
+  }
+}
+
+function routePoints(conn) {
+  const fn = nodes[conn.from], tn = nodes[conn.to];
+  if (!fn || !tn) return [[0,0],[0,0]];
+  const [x1,y1] = edgePoint(fn, conn.fe);
+  const [x2,y2] = edgePoint(tn, conn.te);
+  const fH = conn.fe==='left'||conn.fe==='right';
+  const tH = conn.te==='left'||conn.te==='right';
+
+  if (!fH && !tH) {
+    if (Math.abs(x1-x2)<3) return [[x1,y1],[x2,y2]];
+    const my = (y1+y2)/2;
+    return [[x1,y1],[x1,my],[x2,my],[x2,y2]];
+  }
+  if (fH && tH) {
+    if (Math.abs(y1-y2)<3) return [[x1,y1],[x2,y2]];
+    const mx = (x1+x2)/2;
+    return [[x1,y1],[mx,y1],[mx,y2],[x2,y2]];
+  }
+  if (fH && !tH) return [[x1,y1],[x2,y1],[x2,y2]];
+  return [[x1,y1],[x1,y2],[x2,y2]];
+}
+
+function pointsToPath(pts, r) {
+  if (pts.length<2) return '';
+  let d = `M ${pts[0][0]} ${pts[0][1]}`;
+  for (let i=1; i<pts.length-1; i++) {
+    const [px,py]=pts[i-1],[cx,cy]=pts[i],[nx,ny]=pts[i+1];
+    const dx1=Math.sign(cx-px),dy1=Math.sign(cy-py);
+    const dx2=Math.sign(nx-cx),dy2=Math.sign(ny-cy);
+    const s1=Math.abs(cx-px)+Math.abs(cy-py), s2=Math.abs(nx-cx)+Math.abs(ny-cy);
+    const ar=Math.min(r, s1/2.2, s2/2.2);
+    d += ` L ${cx-dx1*ar} ${cy-dy1*ar} Q ${cx} ${cy} ${cx+dx2*ar} ${cy+dy2*ar}`;
+  }
+  const last=pts[pts.length-1];
+  d += ` L ${last[0]} ${last[1]}`;
+  return d;
+}
+
+function labelPos(pts) {
+  if (pts.length===2) return {x:(pts[0][0]+pts[1][0])/2, y:(pts[0][1]+pts[1][1])/2};
+  if (pts.length===4) return {x:(pts[1][0]+pts[2][0])/2, y:(pts[1][1]+pts[2][1])/2};
+  const m=Math.floor(pts.length/2);
+  return {x:pts[m][0], y:pts[m][1]};
+}
+
+// ═══════════════════════════════════════
+// RENDERING
+// ═══════════════════════════════════════
+function renderAllPaths() {
+  const pg=document.getElementById('pathGroup');
+  const lg=document.getElementById('labelGroup');
+  pg.innerHTML=''; lg.innerHTML='';
+  for (const c of CONNECTIONS) {
+    const pts = routePoints(c);
+    const d = pointsToPath(pts, CORNER_R);
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.id='path-'+c.id; path.classList.add('flow-path'); path.setAttribute('d',d);
+    pg.appendChild(path);
+    pathElements[c.id]=path;
+    pathLengths[c.id]=path.getTotalLength();
+
+    const lp = labelPos(pts);
+    const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+    txt.id='lbl-'+c.id; txt.classList.add('path-label');
+    txt.setAttribute('x',lp.x); txt.setAttribute('y',lp.y-8);
+    txt.textContent=PATH_LABELS[c.id]||'';
+    lg.appendChild(txt);
+  }
+}
+
+function updateAllPaths() {
+  for (const c of CONNECTIONS) {
+    const pts = routePoints(c);
+    const d = pointsToPath(pts, CORNER_R);
+    const pe = pathElements[c.id];
+    if(pe){pe.setAttribute('d',d); pathLengths[c.id]=pe.getTotalLength();}
+    const lp=labelPos(pts);
+    const le=document.getElementById('lbl-'+c.id);
+    if(le){le.setAttribute('x',lp.x);le.setAttribute('y',lp.y-8);}
+  }
+}
+
+function positionNode(id) {
+  const n=nodes[id], el=document.getElementById('node-'+id);
+  if(!el)return;
+  el.style.left=(n.cx-HW)+'px'; el.style.top=(n.cy-HH)+'px';
+}
+
+function positionAllNodes() {
+  for (const id in nodes) positionNode(id);
+}
+
+// ═══════════════════════════════════════
+// DRAGGING
+// ═══════════════════════════════════════
+function getScale() {
+  const d=document.getElementById('diagram');
+  const t=getComputedStyle(d).transform;
+  if(t==='none')return 1;
+  return new DOMMatrix(t).a;
+}
+
+function initDrag() {
+  document.querySelectorAll('.node').forEach(el => {
+    const nid = el.id.replace('node-','');
+    el.addEventListener('mousedown', e => {
+      if(e.button!==0)return;
+      e.preventDefault();
+      const n=nodes[nid];
+      dragState={nodeId:nid,startX:e.clientX,startY:e.clientY,origCx:n.cx,origCy:n.cy};
+      el.classList.add('dragging');
+    });
+  });
+  document.addEventListener('mousemove', e => {
+    if(!dragState)return;
+    e.preventDefault();
+    const s=getScale();
+    const dx=(e.clientX-dragState.startX)/s, dy=(e.clientY-dragState.startY)/s;
+    const n=nodes[dragState.nodeId];
+    n.cx=dragState.origCx+dx; n.cy=dragState.origCy+dy;
+    positionNode(dragState.nodeId);
+    updateAllPaths();
+  });
+  document.addEventListener('mouseup', () => {
+    if(!dragState)return;
+    document.getElementById('node-'+dragState.nodeId)?.classList.remove('dragging');
+    dragState=null;
+    savePositions();
+  });
+}
+
+function savePositions(){
+  try{localStorage.setItem('lq-migration-pos',JSON.stringify(nodes));}catch(e){}
+}
+function loadPositions(){
+  try{
+    const s=localStorage.getItem('lq-migration-pos');
+    if(s){const p=JSON.parse(s);for(const k in p)if(nodes[k])Object.assign(nodes[k],p[k]);}
+  }catch(e){}
+}
+function resetLayout(){
+  for(const k in DEFAULT_NODES) nodes[k]={...DEFAULT_NODES[k]};
+  positionAllNodes(); updateAllPaths();
+  try{localStorage.removeItem('lq-migration-pos');}catch(e){}
+}
+
+// ═══════════════════════════════════════
+// PACKET ANIMATION
+// ═══════════════════════════════════════
+const canvas=document.getElementById('packetCanvas');
+const ctx=canvas.getContext('2d');
+
+function initCanvas(){
+  const dpr=window.devicePixelRatio||1;
+  canvas.width=1400*dpr; canvas.height=750*dpr;
+  ctx.scale(dpr,dpr);
+}
+
+function spawnPacket(pathIds, color){
+  packets.push({pathIds:[...pathIds],pi:0,progress:0,color,trail:[],alive:true});
+}
+
+function animate(ts){
+  const dt=lastTs?(ts-lastTs)/1000:0.016; lastTs=ts;
+  const cdt=Math.min(dt,.05);
+  for(let i=packets.length-1;i>=0;i--){
+    const p=packets[i]; if(!p.alive)continue;
+    const pid=p.pathIds[p.pi], pe=pathElements[pid], len=pathLengths[pid];
+    if(!pe||!len){p.alive=false;continue;}
+    p.progress+=PACKET_SPEED/len*cdt;
+    const pt=pe.getPointAtLength(Math.min(p.progress,1)*len);
+    p.trail.unshift({x:pt.x,y:pt.y}); if(p.trail.length>10)p.trail.pop();
+    if(p.progress>=1){
+      const dn=PATH_DEST[pid]; if(dn)pulseNode(dn);
+      p.pi++; p.progress=0;
+      if(p.pi>=p.pathIds.length){p.alive=false;}
+    }
+  }
+  packets=packets.filter(p=>p.alive);
+  ctx.clearRect(0,0,1400,750);
+  for(const p of packets){
+    if(!p.trail.length)continue;
+    for(let i=p.trail.length-1;i>=0;i--){
+      const t=p.trail[i], a=(1-i/p.trail.length), r=5-i*.4;
+      if(r<=0||a<=0)continue;
+      ctx.save();ctx.globalAlpha=a*.3;ctx.shadowBlur=16;ctx.shadowColor=p.color;
+      ctx.beginPath();ctx.arc(t.x,t.y,r+3,0,Math.PI*2);ctx.fillStyle=p.color;ctx.fill();ctx.restore();
+      ctx.save();ctx.globalAlpha=a;ctx.beginPath();ctx.arc(t.x,t.y,r,0,Math.PI*2);ctx.fillStyle=p.color;ctx.fill();ctx.restore();
+    }
+    const h=p.trail[0];
+    ctx.save();ctx.globalAlpha=1;ctx.beginPath();ctx.arc(h.x,h.y,2,0,Math.PI*2);ctx.fillStyle='#fff';ctx.fill();ctx.restore();
+  }
+  requestAnimationFrame(animate);
+}
+
+function pulseNode(nid){
+  const el=document.getElementById('node-'+nid); if(!el)return;
+  const c=NODE_PULSE[nid]||'pulse-cyan';
+  el.classList.remove(c); void el.offsetWidth; el.classList.add(c);
+  setTimeout(()=>el.classList.remove(c),800);
+}
+
+// ═══════════════════════════════════════
+// STEP-BY-STEP SCENARIOS
+// ═══════════════════════════════════════
+function startScenario(id){
+  if(currentScenario && currentScenario._id===id){endScenario();return;}
+  endScenario();
+  currentScenario=SCENARIOS[id]; currentScenario._id=id; currentStepIdx=0;
+  document.querySelectorAll('.ctrl-btn[id^="btn-"]').forEach(b=>b.classList.remove('active-scenario'));
+  document.getElementById('btn-'+id)?.classList.add('active-scenario');
+  document.getElementById('stepPanel').classList.add('open');
+  showStep(0);
+}
+
+function endScenario(){
+  clearStepAnim();
+  currentScenario=null; currentStepIdx=0;
+  document.getElementById('stepPanel').classList.remove('open');
+  document.querySelectorAll('.ctrl-btn[id^="btn-"]').forEach(b=>b.classList.remove('active-scenario'));
+  document.querySelectorAll('.flow-path').forEach(p=>{p.classList.remove('step-active');p.style.removeProperty('--glow');p.style.stroke='';});
+  document.querySelectorAll('.path-label').forEach(l=>l.classList.remove('visible'));
+}
+
+function showStep(idx){
+  clearStepAnim();
+  const sc=currentScenario, step=sc.steps[idx];
+  document.getElementById('scenarioName').textContent=sc.name;
+  document.getElementById('stepCount').textContent=`Step ${idx+1} of ${sc.steps.length}`;
+  document.getElementById('stepTitle').textContent=step.title;
+  document.getElementById('stepDesc').innerHTML=step.desc;
+  document.getElementById('prevBtn').disabled=idx===0;
+  const nb=document.getElementById('nextBtn');
+  nb.textContent=idx===sc.steps.length-1?'Done ✓':'Next Step →';
+  nb.classList.toggle('primary',idx<sc.steps.length-1);
+
+  document.querySelectorAll('.flow-path').forEach(p=>{p.classList.remove('step-active');p.style.stroke='';});
+  document.querySelectorAll('.path-label').forEach(l=>l.classList.remove('visible'));
+
+  if(step.paths.length>0 && step.color){
+    step.paths.forEach(pid=>{
+      const pe=pathElements[pid]; if(!pe)return;
+      pe.classList.add('step-active');
+      pe.style.stroke=step.color+'60';
+      pe.style.setProperty('--glow',step.color+'40');
+    });
+  }
+  step.labels.forEach(lid=>{
+    document.getElementById('lbl-'+lid)?.classList.add('visible');
+  });
+  if(step.pulse) step.pulse.forEach(n=>pulseNode(n));
+  if(step.paths.length>0 && step.color){
+    spawnPacket(step.paths,step.color);
+    stepInterval=setInterval(()=>spawnPacket(step.paths,step.color),2800);
+  }
+}
+
+function clearStepAnim(){
+  if(stepInterval){clearInterval(stepInterval);stepInterval=null;}
+  packets=[];
+}
+
+function nextStep(){
+  if(!currentScenario)return;
+  if(currentStepIdx>=currentScenario.steps.length-1){endScenario();return;}
+  currentStepIdx++; showStep(currentStepIdx);
+}
+function prevStep(){
+  if(!currentScenario||currentStepIdx<=0)return;
+  currentStepIdx--; showStep(currentStepIdx);
+}
+
+// ═══════════════════════════════════════
+// TOOLTIPS
+// ═══════════════════════════════════════
+function initTooltips(){
+  document.querySelectorAll('.node[data-info]').forEach(el=>{
+    el.addEventListener('mouseenter',e=>{
+      if(dragState)return;
+      const info=NODE_INFO[el.dataset.info]; if(!info)return;
+      const tt=document.getElementById('tooltip');
+      document.getElementById('ttName').innerHTML=info.name;
+      document.getElementById('ttDesc').innerHTML=info.desc;
+      document.getElementById('ttFile').textContent=info.file?'\u{1F4C1} '+info.file:'';
+      const r=el.getBoundingClientRect(), dr=document.getElementById('diagram').getBoundingClientRect();
+      let l=r.right-dr.left+10, t=r.top-dr.top;
+      if(l+280>dr.width)l=r.left-dr.left-290;
+      tt.style.left=Math.max(0,l)+'px'; tt.style.top=Math.max(0,t)+'px';
+      tt.classList.add('visible');
+    });
+    el.addEventListener('mouseleave',()=>document.getElementById('tooltip').classList.remove('visible'));
+  });
+}
+
+// ═══════════════════════════════════════
+// KEYBOARD
+// ═══════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape')endScenario();
+  if(!currentScenario)return;
+  if(e.key==='ArrowRight'||e.key==='ArrowDown'){e.preventDefault();nextStep();}
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp'){e.preventDefault();prevStep();}
+});
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+function fitDiagram(){
+  const d=document.getElementById('diagram'),h=document.querySelector('.header');
+  const vw=window.innerWidth,vh=window.innerHeight-h.offsetHeight-12;
+  const s=Math.min(vw/1420,vh/760,1);
+  d.style.transform=`scale(${s})`; d.style.transformOrigin='top center';
+}
+
+function init(){
+  for(const k in DEFAULT_NODES) nodes[k]={...DEFAULT_NODES[k]};
+  loadPositions();
+  initCanvas();
+  positionAllNodes();
+  renderAllPaths();
+  initDrag();
+  initTooltips();
+  fitDiagram();
+  window.addEventListener('resize',fitDiagram);
+  requestAnimationFrame(animate);
+}
+init();
+</script>
+</body>
+</html>
