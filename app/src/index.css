@@ -1,0 +1,46 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #08080e;
+  --color-card: #10101a;
+  --color-border: #1a1a2e;
+  --color-border-hi: #2a2a44;
+  --color-txt: #d4d4e8;
+  --color-txt-muted: #7a7a9a;
+  --color-txt-dim: #3a3a5a;
+  --color-accent-cyan: #22d3ee;
+  --color-accent-purple: #a78bfa;
+  --color-accent-green: #34d399;
+  --color-accent-pink: #f472b6;
+  --color-accent-amber: #fbbf24;
+  --color-accent-red: #f87171;
+  --color-accent-blue: #60a5fa;
+  --color-panel: #0e0e18f0;
+  --color-code-bg: #ffffff08;
+  --color-edge-fk: #a78bfa60;
+  --color-edge-dot: #a78bfa;
+
+  --font-sans: "DM Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+.light {
+  --color-bg: #f0f0f8;
+  --color-card: #ffffff;
+  --color-border: #d0d0e0;
+  --color-border-hi: #a0a0c0;
+  --color-txt: #1a1a30;
+  --color-txt-muted: #55557a;
+  --color-txt-dim: #9090a8;
+  --color-panel: #ffffffee;
+  --color-code-bg: #0000000a;
+  --color-edge-fk: #7c3aed40;
+  --color-edge-dot: #7c3aed;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-txt);
+  font-family: var(--font-sans);
+}
