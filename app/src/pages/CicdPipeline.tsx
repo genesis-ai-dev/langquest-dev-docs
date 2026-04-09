@@ -30,10 +30,13 @@ export function CicdPipeline() {
         actions={
           <>
             <HeaderButton onClick={() => (window.location.hash = "")}>
-              ← Schema
+              Schema
             </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "migration")}>
+            <HeaderButton onClick={() => (window.location.hash = "#migration")}>
               Migration
+            </HeaderButton>
+            <HeaderButton onClick={() => (window.location.hash = "#sync")}>
+              Sync
             </HeaderButton>
           </>
         }

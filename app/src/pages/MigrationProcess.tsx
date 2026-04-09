@@ -106,6 +106,9 @@ export function MigrationProcess() {
             <HeaderButton onClick={() => (window.location.hash = "")}>
               Schema
             </HeaderButton>
+            <HeaderButton onClick={() => (window.location.hash = "#sync")}>
+              Sync
+            </HeaderButton>
             <HeaderButton onClick={() => (window.location.hash = "#cicd")}>
               CI/CD
             </HeaderButton>

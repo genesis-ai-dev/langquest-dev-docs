@@ -58,7 +58,9 @@ function buildEdges(defs: DiagramEdgeDef[]): Edge[] {
   return defs.map((e, i) => ({
     id: `e-${i}-${e.from}-${e.to}`,
     source: e.from,
+    sourceHandle: `field-${e.fromField}`,
     target: e.to,
+    targetHandle: `field-${e.toField}`,
     type: "schema",
     data: { dash: e.dash },
     markerEnd: {

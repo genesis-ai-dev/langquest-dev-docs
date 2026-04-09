@@ -1,5 +1,11 @@
-import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
-import { useState, useCallback } from "react";
+import {
+  Handle,
+  Position,
+  useUpdateNodeInternals,
+  type NodeProps,
+  type Node,
+} from "@xyflow/react";
+import { useState, useCallback, useEffect, Fragment } from "react";
 import { cn } from "../cn";
 
 export interface FieldDef {
@@ -20,15 +26,22 @@ export interface SchemaNodeData {
 
 export type SchemaNodeType = Node<SchemaNodeData>;
 
-export function SchemaNode({ data }: NodeProps<SchemaNodeType>) {
+const HANDLE_CLS = "!opacity-0 !w-1 !h-1 !min-w-0 !min-h-0";
+
+export function SchemaNode({ id, data }: NodeProps<SchemaNodeType>) {
   const [expanded, setExpanded] = useState(false);
+  const updateNodeInternals = useUpdateNodeInternals();
   const toggle = useCallback(() => setExpanded((v) => !v), []);
   const highlighted = data.highlighted;
+
+  useEffect(() => {
+    updateNodeInternals(id);
+  }, [expanded, id, updateNodeInternals]);
 
   return (
     <div
       className={cn(
-        "border rounded-[10px] bg-card min-w-[150px] max-w-[280px] transition-all duration-250 select-none",
+        "relative border rounded-[10px] bg-card min-w-[150px] max-w-[280px] transition-all duration-250 select-none",
         highlighted
           ? "border-accent-purple shadow-[0_0_16px_#a78bfa18,0_0_0_1px_var(--color-accent-purple)] border-2"
           : "border-border hover:border-border-hi shadow-[0_2px_16px_rgba(0,0,0,.35)]",
@@ -63,17 +76,26 @@ export function SchemaNode({ data }: NodeProps<SchemaNodeType>) {
         </button>
       </div>
 
-      {/* Fields */}
-      {expanded && (
+      {expanded ? (
         <div>
           {data.fields.map((f) => (
-            <FieldRow key={f.name} field={f} />
+            <div key={f.name} className="relative">
+              <FieldRow field={f} />
+              <Handle type="source" position={Position.Right} id={`field-${f.name}`} className={HANDLE_CLS} />
+              <Handle type="target" position={Position.Left} id={`field-${f.name}`} className={HANDLE_CLS} />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="absolute left-0 right-0 top-1/2 h-0 overflow-visible pointer-events-none">
+          {data.fields.map((f) => (
+            <Fragment key={f.name}>
+              <Handle type="source" position={Position.Right} id={`field-${f.name}`} className={HANDLE_CLS} />
+              <Handle type="target" position={Position.Left} id={`field-${f.name}`} className={HANDLE_CLS} />
+            </Fragment>
           ))}
         </div>
       )}
-
-      <Handle type="target" position={Position.Left} className="!opacity-0" />
-      <Handle type="source" position={Position.Right} className="!opacity-0" />
     </div>
   );
 }

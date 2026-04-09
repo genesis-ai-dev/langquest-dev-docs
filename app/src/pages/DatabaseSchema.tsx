@@ -41,6 +41,9 @@ export function DatabaseSchema() {
             <HeaderButton onClick={() => (window.location.hash = "#migration")}>
               Migration
             </HeaderButton>
+            <HeaderButton onClick={() => (window.location.hash = "#sync")}>
+              Sync
+            </HeaderButton>
             <HeaderButton onClick={() => (window.location.hash = "#cicd")}>
               CI/CD
             </HeaderButton>
