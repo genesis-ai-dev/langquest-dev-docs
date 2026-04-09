@@ -1,0 +1,73 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #08080e;
+  --color-card: #10101a;
+  --color-border: #2c2c4a;
+  --color-border-hi: #40406a;
+  --color-txt: #dcdcf0;
+  --color-txt-muted: #9898b8;
+  --color-txt-dim: #606088;
+  --color-accent-cyan: #22d3ee;
+  --color-accent-purple: #a78bfa;
+  --color-accent-green: #34d399;
+  --color-accent-pink: #f472b6;
+  --color-accent-amber: #fbbf24;
+  --color-accent-red: #f87171;
+  --color-accent-blue: #60a5fa;
+  --color-panel: #0e0e18f0;
+  --color-code-bg: #ffffff08;
+  --color-edge-fk: #a78bfa60;
+  --color-edge-dot: #a78bfa;
+
+  --font-sans: "DM Sans", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+.light {
+  --color-bg: #f0f0f8;
+  --color-card: #ffffff;
+  --color-border: #b8b8d0;
+  --color-border-hi: #8888aa;
+  --color-txt: #181830;
+  --color-txt-muted: #484870;
+  --color-txt-dim: #707090;
+  --color-panel: #ffffffee;
+  --color-code-bg: #0000000a;
+  --color-edge-fk: #7c3aed40;
+  --color-edge-dot: #7c3aed;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-txt);
+  font-family: var(--font-sans);
+}
+
+/* Wire React Flow's CSS variable system to our design tokens */
+.react-flow {
+  --xy-node-background-color: transparent;
+  --xy-node-border-default: none;
+  --xy-node-boxshadow-default: none;
+  --xy-background-color: var(--color-bg);
+  --xy-node-color: inherit;
+}
+
+.react-flow__node {
+  padding: 0 !important;
+  font-size: inherit !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+.cap-visible {
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+
+.cap-hidden {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.4s ease;
+}
