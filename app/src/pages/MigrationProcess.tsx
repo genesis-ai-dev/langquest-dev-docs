@@ -104,7 +104,10 @@ export function MigrationProcess() {
         actions={
           <>
             <HeaderButton onClick={() => (window.location.hash = "")}>
-              ← Schema
+              Schema
+            </HeaderButton>
+            <HeaderButton onClick={() => (window.location.hash = "#cicd")}>
+              CI/CD
             </HeaderButton>
             <div className="w-px h-5 bg-border mx-0.5" />
             <VersionSelect

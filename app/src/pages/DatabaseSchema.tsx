@@ -39,7 +39,10 @@ export function DatabaseSchema() {
         actions={
           <>
             <HeaderButton onClick={() => (window.location.hash = "#migration")}>
-              Migration →
+              Migration
+            </HeaderButton>
+            <HeaderButton onClick={() => (window.location.hash = "#cicd")}>
+              CI/CD
             </HeaderButton>
             <HeaderButton onClick={resetLayout}>⟲ Reset</HeaderButton>
           </>

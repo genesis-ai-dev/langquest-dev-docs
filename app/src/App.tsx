@@ -2,11 +2,15 @@ import { useEffect, useState } from "react";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { DatabaseSchema } from "./pages/DatabaseSchema";
 import { MigrationProcess } from "./pages/MigrationProcess";
+import { CicdPipeline } from "./pages/CicdPipeline";
 
-type Page = "schema" | "migration";
+type Page = "schema" | "migration" | "cicd";
 
 function getPage(): Page {
-  return window.location.hash === "#migration" ? "migration" : "schema";
+  const h = window.location.hash;
+  if (h === "#migration") return "migration";
+  if (h === "#cicd") return "cicd";
+  return "schema";
 }
 
 export default function App() {
@@ -20,7 +24,13 @@ export default function App() {
 
   return (
     <ThemeProvider storageKey="lq-docs-theme">
-      {page === "migration" ? <MigrationProcess /> : <DatabaseSchema />}
+      {page === "migration" ? (
+        <MigrationProcess />
+      ) : page === "cicd" ? (
+        <CicdPipeline />
+      ) : (
+        <DatabaseSchema />
+      )}
     </ThemeProvider>
   );
 }
