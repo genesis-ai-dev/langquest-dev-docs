@@ -37,7 +37,12 @@ export function DatabaseSchema() {
         title="Database Schema"
         subtitle="LangQuest · Postgres / Supabase"
         actions={
-          <HeaderButton onClick={resetLayout}>⟲ Reset</HeaderButton>
+          <>
+            <HeaderButton onClick={() => (window.location.hash = "#migration")}>
+              Migration →
+            </HeaderButton>
+            <HeaderButton onClick={resetLayout}>⟲ Reset</HeaderButton>
+          </>
         }
       />
 

@@ -4,11 +4,11 @@
 @theme {
   --color-bg: #08080e;
   --color-card: #10101a;
-  --color-border: #1a1a2e;
-  --color-border-hi: #2a2a44;
-  --color-txt: #d4d4e8;
-  --color-txt-muted: #7a7a9a;
-  --color-txt-dim: #3a3a5a;
+  --color-border: #2c2c4a;
+  --color-border-hi: #40406a;
+  --color-txt: #dcdcf0;
+  --color-txt-muted: #9898b8;
+  --color-txt-dim: #606088;
   --color-accent-cyan: #22d3ee;
   --color-accent-purple: #a78bfa;
   --color-accent-green: #34d399;
@@ -28,11 +28,11 @@
 .light {
   --color-bg: #f0f0f8;
   --color-card: #ffffff;
-  --color-border: #d0d0e0;
-  --color-border-hi: #a0a0c0;
-  --color-txt: #1a1a30;
-  --color-txt-muted: #55557a;
-  --color-txt-dim: #9090a8;
+  --color-border: #b8b8d0;
+  --color-border-hi: #8888aa;
+  --color-txt: #181830;
+  --color-txt-muted: #484870;
+  --color-txt-dim: #707090;
   --color-panel: #ffffffee;
   --color-code-bg: #0000000a;
   --color-edge-fk: #7c3aed40;
@@ -43,4 +43,31 @@ body {
   background: var(--color-bg);
   color: var(--color-txt);
   font-family: var(--font-sans);
+}
+
+/* Wire React Flow's CSS variable system to our design tokens */
+.react-flow {
+  --xy-node-background-color: transparent;
+  --xy-node-border-default: none;
+  --xy-node-boxshadow-default: none;
+  --xy-background-color: var(--color-bg);
+  --xy-node-color: inherit;
+}
+
+.react-flow__node {
+  padding: 0 !important;
+  font-size: inherit !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+.cap-visible {
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+
+.cap-hidden {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.4s ease;
 }

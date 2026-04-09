@@ -1,6 +1,5 @@
 import {
   ReactFlow,
-  Background,
   useNodesState,
   useEdgesState,
   type Node,
@@ -13,6 +12,7 @@ import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useRef } from "react";
 import { SchemaNode, type SchemaNodeData } from "./SchemaNode";
 import { SchemaEdge } from "./SchemaEdge";
+import { useTheme } from "./ThemeProvider";
 
 const nodeTypes: NodeTypes = { schema: SchemaNode };
 const edgeTypes: EdgeTypes = { schema: SchemaEdge };
@@ -83,6 +83,7 @@ export function DiagramShell({
   highlightedNodes?: string[];
   diagramTitle?: string;
 }) {
+  const { theme } = useTheme();
   const initialised = useRef(false);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -141,15 +142,15 @@ export function DiagramShell({
         onNodeDragStop={onNodeDragStop}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        colorMode={theme}
         fitView
         fitViewOptions={{ padding: 0.15 }}
         proOptions={{ hideAttribution: true }}
         minZoom={0.3}
         maxZoom={2}
+        panOnScroll
         defaultEdgeOptions={{ animated: false }}
-      >
-        <Background color="var(--color-border)" gap={40} size={1} />
-      </ReactFlow>
+      />
     </div>
   );
 }

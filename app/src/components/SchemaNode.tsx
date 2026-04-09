@@ -23,14 +23,15 @@ export type SchemaNodeType = Node<SchemaNodeData>;
 export function SchemaNode({ data }: NodeProps<SchemaNodeType>) {
   const [expanded, setExpanded] = useState(false);
   const toggle = useCallback(() => setExpanded((v) => !v), []);
+  const highlighted = data.highlighted;
 
   return (
     <div
       className={cn(
-        "border rounded-[10px] bg-card shadow-[0_2px_16px_rgba(0,0,0,.35)] min-w-[150px] max-w-[280px] transition-all select-none",
-        data.highlighted
-          ? "border-accent-purple shadow-[0_0_16px_#a78bfa18,0_0_0_1px_var(--color-accent-purple)]"
-          : "border-border hover:border-border-hi",
+        "border rounded-[10px] bg-card min-w-[150px] max-w-[280px] transition-all duration-250 select-none",
+        highlighted
+          ? "border-accent-purple shadow-[0_0_16px_#a78bfa18,0_0_0_1px_var(--color-accent-purple)] border-2"
+          : "border-border hover:border-border-hi shadow-[0_2px_16px_rgba(0,0,0,.35)]",
       )}
     >
       {/* Header */}
@@ -130,7 +131,7 @@ function FieldRow({ field }: { field: FieldDef }) {
             ?
           </button>
           {showHint && (
-            <div className="absolute z-[200] right-0 top-full mt-1 bg-card/95 border border-border-hi rounded-[10px] px-3.5 py-2.5 max-w-[280px] font-sans text-[.72rem] text-txt-muted leading-relaxed backdrop-blur-[12px] shadow-[0_8px_24px_rgba(0,0,0,.5)]">
+            <div className="absolute z-[200] right-0 top-full mt-1 bg-card/95 border border-border-hi rounded-[10px] px-3.5 py-2.5 w-max min-w-[180px] max-w-[320px] font-sans text-[.72rem] text-txt-muted leading-relaxed backdrop-blur-[12px] shadow-[0_8px_24px_rgba(0,0,0,.5)]">
               {field.hint}
             </div>
           )}
