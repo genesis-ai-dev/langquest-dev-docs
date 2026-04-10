@@ -56,12 +56,12 @@ const STATIC_NODES: NodeDef[] = [
 
   // Tier 2.5
   { id: "psService", type: "container", x: 538, y: 420, w: 240, h: 88, label: "PowerSync Service", category: "server", zIndex: -1 },
-  { id: "syncRules", type: "migration", x: 591, y: 450, w: 140, h: 40, label: "Sync Rules", badge: "CONFIG", category: "server" },
+  { id: "syncRules", type: "migration", x: 591, y: 448, w: 150, h: 48, label: "Sync Rules", badge: "CONFIG", category: "server" },
   { id: "clientUpdate", type: "migration", x: 208, y: 430, w: 165, h: 54, label: "Client Updates App", badge: "DEVICE", category: "client" },
 
   // Tier 3 — App
   { id: "app", type: "container", x: 23, y: 539, w: 1418, h: 210, label: "App", category: "client", zIndex: -2 },
-  { id: "checkSchema", type: "migration", x: 1258, y: 628, w: 155, h: 48, label: "Check Schema Version", badge: "CLIENT", category: "client" },
+  { id: "checkSchema", type: "migration", x: 1258, y: 626, w: 175, h: 54, label: "Check Schema Version", badge: "CLIENT", category: "client" },
   { id: "localOnly", type: "container", x: 65, y: 600, w: 450, h: 125, label: "local-only tables", category: "client", zIndex: -1 },
   { id: "synced", type: "container", x: 579, y: 610, w: 165, h: 105, label: "synced tables", category: "client", zIndex: -1 },
   { id: "psCrud", type: "migration", x: 948, y: 620, w: 140, h: 85, label: "ps_crud", subtitle: "Upload queue", badge: "QUEUE", category: "client" },

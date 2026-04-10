@@ -1,7 +1,5 @@
 import {
   ReactFlow,
-  useReactFlow,
-  ReactFlowProvider,
   type Node,
   type Edge,
   type NodeTypes,
@@ -101,9 +99,8 @@ function defToNode(d: AuthNodeDef, saved?: SavedLayout): Node {
   };
 }
 
-function AuthDiagramInner() {
+export function AuthDiagram() {
   const { theme } = useTheme();
-  const { getNodes } = useReactFlow();
   const savedPos = useRef(loadSavedLayouts());
   const [handleOverrides, setHandleOverrides] = useState<
     Record<string, HandleOverride>
@@ -153,57 +150,15 @@ function AuthDiagramInner() {
 
   const onEdgeClick: EdgeMouseHandler = useCallback(
     (event, edge) => {
-      const rfNodes = getNodes();
-      const sourceNode = rfNodes.find((n) => n.id === edge.source);
-      const targetNode = rfNodes.find((n) => n.id === edge.target);
-      if (!sourceNode || !targetNode) return;
-
-      const clickX = event.clientX;
-      const clickY = event.clientY;
-
-      const rect = (event.target as Element)
-        .closest(".react-flow")
-        ?.getBoundingClientRect();
-      if (!rect) return;
-
-      const sourceCenter = {
-        x: sourceNode.position.x + (sourceNode.measured?.width ?? 100) / 2,
-        y: sourceNode.position.y + (sourceNode.measured?.height ?? 50) / 2,
-      };
-      const targetCenter = {
-        x: targetNode.position.x + (targetNode.measured?.width ?? 100) / 2,
-        y: targetNode.position.y + (targetNode.measured?.height ?? 50) / 2,
-      };
-
-      const viewportEl = (event.target as Element).closest(
-        ".react-flow__viewport",
-      );
-      if (!viewportEl) return;
-      const transform = viewportEl.getAttribute("style") ?? "";
-      const m = /translate\(([^,]+)px,\s*([^)]+)px\)\s*scale\(([^)]+)\)/.exec(
-        transform,
-      );
-      const tx = m ? parseFloat(m[1]) : 0;
-      const ty = m ? parseFloat(m[2]) : 0;
-      const scale = m ? parseFloat(m[3]) : 1;
-
-      const flowX = (clickX - rect.left - tx) / scale;
-      const flowY = (clickY - rect.top - ty) / scale;
-
-      const distSource =
-        (flowX - sourceCenter.x) ** 2 + (flowY - sourceCenter.y) ** 2;
-      const distTarget =
-        (flowX - targetCenter.x) ** 2 + (flowY - targetCenter.y) ** 2;
-
-      const side: "sourceHandle" | "targetHandle" =
-        distSource < distTarget ? "sourceHandle" : "targetHandle";
+      const side: "sourceHandle" | "targetHandle" = event.shiftKey
+        ? "targetHandle"
+        : "sourceHandle";
 
       const edgeDef = EDGES.find((e) => e.id === edge.id);
       if (!edgeDef) return;
 
       const currentOverrides = handleOverrides[edge.id] ?? {};
-      const currentHandle =
-        currentOverrides[side] ?? edgeDef[side];
+      const currentHandle = currentOverrides[side] ?? edgeDef[side];
       const next = nextHandle(currentHandle);
 
       setHandleOverrides((prev) => {
@@ -215,7 +170,7 @@ function AuthDiagramInner() {
         return updated;
       });
     },
-    [handleOverrides, getNodes],
+    [handleOverrides],
   );
 
   const onNC: OnNodesChange = useCallback((changes) => {
@@ -332,13 +287,5 @@ function AuthDiagramInner() {
         </button>
       </div>
     </div>
-  );
-}
-
-export function AuthDiagram() {
-  return (
-    <ReactFlowProvider>
-      <AuthDiagramInner />
-    </ReactFlowProvider>
   );
 }

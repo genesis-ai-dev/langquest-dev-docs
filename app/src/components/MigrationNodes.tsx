@@ -56,7 +56,7 @@ export function MigrationNode({ data }: NodeProps<MigrationNodeType>) {
   return (
     <div
       className={cn(
-        "border-2 rounded-[10px] bg-card flex flex-col justify-center px-3.5 relative select-none",
+        "border-2 rounded-[10px] bg-card flex flex-col justify-center px-3.5 relative select-none overflow-hidden",
         CAT_BORDER[data.category] ?? "border-border",
         "hover:border-border-hi shadow-[0_2px_16px_rgba(0,0,0,.35)]",
         "transition-[opacity,transform] duration-400",
@@ -67,20 +67,20 @@ export function MigrationNode({ data }: NodeProps<MigrationNodeType>) {
       style={{ width: "100%", height: "100%" }}
     >
       {data.badge && (
-        <span className="absolute top-1.5 right-2 font-mono text-[.48rem] text-txt-muted uppercase tracking-[.06em]">
+        <span className="absolute top-1.5 right-2 font-mono text-[.55rem] text-txt-dim uppercase tracking-[.06em] font-semibold">
           {data.badge}
         </span>
       )}
       <div
         className={cn(
-          "font-mono text-[.75rem] font-semibold leading-tight",
+          "font-mono text-[.85rem] font-semibold leading-tight",
           CAT_COLORS[data.category] ?? "text-txt",
         )}
       >
         {data.label}
       </div>
       {data.subtitle && (
-        <div className="text-[.62rem] text-txt-muted mt-0.5">
+        <div className="text-[.7rem] text-txt mt-0.5 opacity-70">
           {data.subtitle}
         </div>
       )}
@@ -121,7 +121,7 @@ export function ContainerNode({ data, selected }: NodeProps<ContainerNodeType>) 
       />
       <span
         className={cn(
-          "absolute top-2 left-3 font-mono text-[.55rem] font-semibold uppercase tracking-[.08em]",
+          "absolute top-2 left-3 font-mono text-[.65rem] font-semibold uppercase tracking-[.08em]",
           CAT_COLORS[data.category] ?? "text-txt-muted",
         )}
       >

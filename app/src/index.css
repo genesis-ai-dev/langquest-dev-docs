@@ -32,11 +32,18 @@
   --color-border-hi: #8888aa;
   --color-txt: #181830;
   --color-txt-muted: #484870;
-  --color-txt-dim: #707090;
+  --color-txt-dim: #606080;
   --color-panel: #ffffffee;
   --color-code-bg: #0000000a;
   --color-edge-fk: #7c3aed40;
   --color-edge-dot: #7c3aed;
+  --color-accent-cyan: #0891b2;
+  --color-accent-purple: #7c3aed;
+  --color-accent-green: #059669;
+  --color-accent-pink: #db2777;
+  --color-accent-amber: #d97706;
+  --color-accent-red: #dc2626;
+  --color-accent-blue: #2563eb;
 }
 
 body {
