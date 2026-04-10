@@ -264,7 +264,7 @@ export const STEPS: Step[] = [
     phaseColor: "var(--color-accent-purple)",
     title: "The race guard",
     description:
-      `${s(AF, "Path A")} and ${s(AF, "Path B")} run concurrently. A <code>hasInitializedRef</code> guard ensures only the winner calls ${sc(AF, "initializeSystem()")}. When one path completes, it sets the ref to <code>true</code>. The other checks it — if already set, it no-ops. <strong>Online:</strong> ${s(AF, "Path B")} usually wins. <strong>Offline:</strong> ${s(AF, "Path A")} wins (3s timeout beats ~25s). In the animated version, you'll toggle online/offline and watch the race.`,
+      `${s(AF, "Path A")} and ${s(AF, "Path B")} run concurrently. A <code>hasInitializedRef</code> guard ensures only the winner calls ${sc(AF, "initializeSystem()")}. When one path completes, it sets the ref to <code>true</code>. The other checks it — if already set, it no-ops. <strong>Online:</strong> ${s(AF, "Path B")} usually wins. <strong>Offline:</strong> ${s(AF, "Path A")} wins (3s timeout beats ~25s).`,
     highlightNodes: ["pathA", "pathB", "initSystem"],
     activeEdges: ["e-pathA-init", "e-pathB-init"],
   },
