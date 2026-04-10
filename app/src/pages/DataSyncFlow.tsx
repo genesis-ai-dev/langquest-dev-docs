@@ -56,6 +56,9 @@ export function DataSyncFlow() {
             <HeaderButton onClick={() => (window.location.hash = "#cicd")}>
               CI/CD
             </HeaderButton>
+            <HeaderButton onClick={() => (window.location.hash = "#auth")}>
+              Auth
+            </HeaderButton>
             <div className="w-px h-5 bg-border mx-0.5" />
             {SCENARIOS.map((sc) => (
               <HeaderButton

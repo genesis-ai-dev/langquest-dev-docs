@@ -22,6 +22,10 @@ const CAT_COLORS: Record<string, string> = {
   server: "text-accent-green",
   client: "text-accent-cyan",
   external: "text-accent-pink",
+  auth: "text-accent-purple",
+  service: "text-accent-amber",
+  storage: "text-accent-green",
+  bridge: "text-accent-blue",
 };
 
 const CAT_BORDER: Record<string, string> = {
@@ -29,6 +33,10 @@ const CAT_BORDER: Record<string, string> = {
   server: "border-accent-green/40",
   client: "border-accent-cyan/40",
   external: "border-accent-pink/40",
+  auth: "border-accent-purple/40",
+  service: "border-accent-amber/40",
+  storage: "border-accent-green/40",
+  bridge: "border-accent-blue/40",
 };
 
 // ── Standard node (Git repo, CI/CD, Postgres, etc.) ──

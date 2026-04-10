@@ -47,6 +47,9 @@ export function DatabaseSchema() {
             <HeaderButton onClick={() => (window.location.hash = "#cicd")}>
               CI/CD
             </HeaderButton>
+            <HeaderButton onClick={() => (window.location.hash = "#auth")}>
+              Auth
+            </HeaderButton>
             <HeaderButton onClick={resetLayout}>⟲ Reset</HeaderButton>
           </>
         }

@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "kill": "lsof -ti :5173,:5174,:5175 | xargs kill -9 2>/dev/null; echo 'Done'",
+    "restart": "npm run kill && npm run dev"
   },
   "dependencies": {
     "@xyflow/react": "^12.10.2",

@@ -1,32 +1,21 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { Header, HeaderButton } from "../components/Header";
-import { StepWalkthrough, type Step } from "../components/StepWalkthrough";
-import { CicdDiagram } from "../components/CicdDiagram";
-import { STEPS } from "../data/cicdPipeline";
+import { StepWalkthrough } from "../components/StepWalkthrough";
+import { AuthDiagram } from "../components/AuthDiagram";
+import { STEPS } from "../data/authFlow";
 
-export function CicdPipeline() {
+export function AuthFlow() {
   const [currentStep, setCurrentStep] = useState(0);
 
   const handleStepChange = useCallback((step: number) => {
     setCurrentStep(step);
   }, []);
 
-  const walkthroughSteps: Step[] = useMemo(
-    () =>
-      STEPS.map((s) => ({
-        title: s.title,
-        description: s.description,
-        phase: s.phase,
-        phaseColor: s.phaseColor,
-      })),
-    [],
-  );
-
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <Header
-        title="CI/CD Pipeline"
-        subtitle="LangQuest · Developer Workflow"
+        title="Auth Flow"
+        subtitle="LangQuest · Supabase Auth + PowerSync"
         actions={
           <>
             <HeaderButton onClick={() => (window.location.hash = "")}>
@@ -38,17 +27,17 @@ export function CicdPipeline() {
             <HeaderButton onClick={() => (window.location.hash = "#sync")}>
               Sync
             </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#auth")}>
-              Auth
+            <HeaderButton onClick={() => (window.location.hash = "#cicd")}>
+              CI/CD
             </HeaderButton>
           </>
         }
       />
 
-      <CicdDiagram step={STEPS[currentStep]} />
+      <AuthDiagram />
 
       <StepWalkthrough
-        steps={walkthroughSteps}
+        steps={STEPS}
         currentStep={currentStep}
         onStepChange={handleStepChange}
       />
