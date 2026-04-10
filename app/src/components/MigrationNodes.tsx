@@ -24,8 +24,11 @@ const CAT_COLORS: Record<string, string> = {
   external: "text-accent-pink",
   auth: "text-accent-purple",
   service: "text-accent-amber",
-  storage: "text-accent-green",
+  storage: "text-accent-pink",
   bridge: "text-accent-blue",
+  supabase: "text-accent-green",
+  powersync: "text-accent-purple",
+  authflow: "text-accent-cyan",
 };
 
 const CAT_BORDER: Record<string, string> = {
@@ -35,8 +38,11 @@ const CAT_BORDER: Record<string, string> = {
   external: "border-accent-pink/40",
   auth: "border-accent-purple/40",
   service: "border-accent-amber/40",
-  storage: "border-accent-green/40",
+  storage: "border-accent-pink/40",
   bridge: "border-accent-blue/40",
+  supabase: "border-accent-green/40",
+  powersync: "border-accent-purple/40",
+  authflow: "border-accent-cyan/40",
 };
 
 // ── Standard node (Git repo, CI/CD, Postgres, etc.) ──
@@ -47,6 +53,7 @@ export interface MigrationNodeData {
   badge?: string;
   category: string;
   revealed: boolean;
+  highlighted?: boolean;
   [key: string]: unknown;
 }
 
@@ -59,10 +66,12 @@ export function MigrationNode({ data }: NodeProps<MigrationNodeType>) {
         "border-2 rounded-[10px] bg-card flex flex-col justify-center px-3.5 relative select-none overflow-hidden",
         CAT_BORDER[data.category] ?? "border-border",
         "hover:border-border-hi shadow-[0_2px_16px_rgba(0,0,0,.35)]",
-        "transition-[opacity,transform] duration-400",
+        "transition-[opacity,transform,box-shadow] duration-400",
         data.revealed
           ? "opacity-100 scale-100"
           : "opacity-0 scale-[0.97] pointer-events-none",
+        data.highlighted &&
+          "ring-2 ring-white/25 shadow-[0_0_24px_rgba(255,255,255,.12)]",
       )}
       style={{ width: "100%", height: "100%" }}
     >
@@ -95,6 +104,7 @@ export interface ContainerNodeData {
   label: string;
   category: string;
   revealed: boolean;
+  highlighted?: boolean;
   [key: string]: unknown;
 }
 
@@ -107,8 +117,9 @@ export function ContainerNode({ data, selected }: NodeProps<ContainerNodeType>) 
         "border-2 border-dashed rounded-[14px] relative",
         CAT_BORDER[data.category] ?? "border-border",
         "bg-card/25",
-        "transition-[opacity] duration-400",
+        "transition-[opacity,box-shadow] duration-400",
         data.revealed ? "opacity-100" : "opacity-0 pointer-events-none",
+        data.highlighted && "ring-1 ring-white/15",
       )}
       style={{ width: "100%", height: "100%" }}
     >
@@ -127,6 +138,60 @@ export function ContainerNode({ data, selected }: NodeProps<ContainerNodeType>) 
       >
         {data.label}
       </span>
+      <Handles />
+    </div>
+  );
+}
+
+// ── Detail node (expandable item list) ──
+
+export interface DetailNodeData {
+  label: string;
+  items?: Array<{ name: string; desc: string }>;
+  category: string;
+  revealed: boolean;
+  highlighted?: boolean;
+  [key: string]: unknown;
+}
+
+export type DetailNodeType = Node<DetailNodeData>;
+
+export function DetailNode({ data }: NodeProps<DetailNodeType>) {
+  return (
+    <div
+      className={cn(
+        "border-2 rounded-[10px] bg-card px-3 py-2.5 relative select-none overflow-hidden",
+        CAT_BORDER[data.category] ?? "border-border",
+        "shadow-[0_2px_16px_rgba(0,0,0,.35)]",
+        "transition-[opacity,transform,box-shadow] duration-400",
+        data.revealed
+          ? "opacity-100 scale-100"
+          : "opacity-0 scale-[0.97] pointer-events-none",
+        data.highlighted &&
+          "ring-2 ring-white/25 shadow-[0_0_24px_rgba(255,255,255,.12)]",
+      )}
+      style={{ width: "100%", height: "100%" }}
+    >
+      <div
+        className={cn(
+          "font-mono text-[.75rem] font-semibold mb-1.5 pb-1 border-b border-border/50",
+          CAT_COLORS[data.category] ?? "text-txt",
+        )}
+      >
+        {data.label}
+      </div>
+      <div className="flex flex-col gap-1">
+        {data.items?.map((item) => (
+          <div key={item.name} className="flex items-baseline gap-2">
+            <span className="font-mono text-[.7rem] text-txt font-medium shrink-0">
+              {item.name}
+            </span>
+            <span className="text-[.6rem] text-txt-muted truncate">
+              {item.desc}
+            </span>
+          </div>
+        ))}
+      </div>
       <Handles />
     </div>
   );

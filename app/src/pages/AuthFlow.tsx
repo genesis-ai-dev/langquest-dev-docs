@@ -34,7 +34,7 @@ export function AuthFlow() {
         }
       />
 
-      <AuthDiagram />
+      <AuthDiagram currentStep={currentStep} />
 
       <StepWalkthrough
         steps={STEPS}

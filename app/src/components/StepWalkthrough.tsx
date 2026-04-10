@@ -4,6 +4,8 @@ export interface Step {
   title: string;
   description: string;
   highlightNodes?: string[];
+  activeEdges?: string[];
+  revealNodes?: string[];
   phase?: string;
   phaseColor?: string;
 }
@@ -106,7 +108,10 @@ export function StepWalkthrough({
       >
         {resolvedPhase}
       </div>
-      <div className="text-[.95rem] font-semibold">{step.title}</div>
+      <div
+        className="text-[.95rem] font-semibold [&_span]:font-semibold"
+        dangerouslySetInnerHTML={{ __html: step.title }}
+      />
       <div
         className="text-[.82rem] text-txt-muted leading-relaxed [&_code]:font-mono [&_code]:text-[.72rem] [&_code]:bg-code-bg [&_code]:px-[5px] [&_code]:py-px [&_code]:rounded-[3px] [&_code]:text-accent-pink [&_strong]:text-txt [&_strong]:font-semibold"
         dangerouslySetInnerHTML={{ __html: step.description }}

@@ -1,5 +1,7 @@
 import {
   ReactFlow,
+  useReactFlow,
+  ReactFlowProvider,
   type Node,
   type Edge,
   type NodeTypes,
@@ -8,19 +10,21 @@ import {
   applyNodeChanges,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "./ThemeProvider";
-import { MigrationNode, ContainerNode } from "./MigrationNodes";
+import { MigrationNode, ContainerNode, DetailNode } from "./MigrationNodes";
 import {
   NODES,
   EDGES,
   EDGE_COLORS,
+  STEPS,
   type AuthNodeDef,
 } from "../data/authFlow";
 
 const nodeTypes: NodeTypes = {
   migration: MigrationNode,
   container: ContainerNode,
+  detail: DetailNode,
 };
 
 const STORAGE_KEY = "lq-auth-pos";
@@ -80,7 +84,20 @@ function nextHandle(current: string): string {
   return HANDLE_CYCLE[(idx + 1) % HANDLE_CYCLE.length];
 }
 
-function defToNode(d: AuthNodeDef, saved?: SavedLayout): Node {
+function buildRevealedSet(step: number): Set<string> {
+  const s = new Set<string>();
+  for (let i = 0; i <= step; i++) {
+    STEPS[i].revealNodes?.forEach((id) => s.add(id));
+  }
+  return s;
+}
+
+function defToNode(
+  d: AuthNodeDef,
+  saved: SavedLayout | undefined,
+  revealed: boolean,
+  highlighted: boolean,
+): Node {
   return {
     id: d.id,
     type: d.type,
@@ -91,7 +108,9 @@ function defToNode(d: AuthNodeDef, saved?: SavedLayout): Node {
       subtitle: d.subtitle,
       badge: d.badge,
       category: d.category,
-      revealed: true,
+      items: d.items,
+      revealed,
+      highlighted,
     },
     style: { width: saved?.w ?? d.w, height: saved?.h ?? d.h },
     draggable: true,
@@ -99,60 +118,150 @@ function defToNode(d: AuthNodeDef, saved?: SavedLayout): Node {
   };
 }
 
-export function AuthDiagram() {
+function AuthDiagramInner({ currentStep }: { currentStep: number }) {
   const { theme } = useTheme();
+  const { fitView, getNodes } = useReactFlow();
   const savedPos = useRef(loadSavedLayouts());
   const [handleOverrides, setHandleOverrides] = useState<
     Record<string, HandleOverride>
   >(loadEdgeOverrides);
 
-  const initialNodes: Node[] = useMemo(
-    () => NODES.map((d) => defToNode(d, savedPos.current[d.id])),
-    [],
-  );
+  // Build initial nodes with step-0 reveal state
+  const [nodes, setNodes] = useState<Node[]>(() => {
+    const revealed = buildRevealedSet(0);
+    const highlighted = new Set(STEPS[0]?.highlightNodes ?? []);
+    return NODES.map((d) =>
+      defToNode(
+        d,
+        savedPos.current[d.id],
+        d.type === "detail" ? highlighted.has(d.id) : revealed.has(d.id),
+        highlighted.has(d.id),
+      ),
+    );
+  });
 
-  const [nodes, setNodes] = useState(initialNodes);
-
-  const edges: Edge[] = useMemo(
-    () =>
-      EDGES.map((d) => {
-        const c = EDGE_COLORS[d.color] ?? EDGE_COLORS.default;
-        const ov = handleOverrides[d.id];
+  // Update node reveal/highlight when step changes
+  useEffect(() => {
+    const revealed = buildRevealedSet(currentStep);
+    const highlighted = new Set(STEPS[currentStep]?.highlightNodes ?? []);
+    setNodes((nds) =>
+      nds.map((n) => {
+        const isDetail = NODES.find((d) => d.id === n.id)?.type === "detail";
         return {
-          id: d.id,
-          source: d.source,
-          sourceHandle: ov?.sourceHandle ?? d.sourceHandle,
-          target: d.target,
-          targetHandle: ov?.targetHandle ?? d.targetHandle,
-          type: "smoothstep" as const,
-          style: {
-            stroke: c,
-            strokeWidth: 1.5,
-            opacity: 0.55,
-            strokeDasharray: d.dash ? "5 4" : undefined,
+          ...n,
+          data: {
+            ...n.data,
+            revealed: isDetail ? highlighted.has(n.id) : revealed.has(n.id),
+            highlighted: highlighted.has(n.id),
           },
-          label: d.label,
-          labelStyle: d.label
-            ? {
-                fill: c,
-                fontFamily: "JetBrains Mono, monospace",
-                fontSize: 10,
-                fontWeight: 600,
-              }
-            : undefined,
-          labelBgStyle: d.label
-            ? { fill: "var(--color-bg)", fillOpacity: 0.85 }
-            : undefined,
         };
       }),
-    [handleOverrides],
-  );
+    );
+  }, [currentStep]);
+
+  // Fit view when new nodes are revealed (only on expansion, not backward)
+  const prevRevealCount = useRef(buildRevealedSet(0).size);
+  useEffect(() => {
+    const count = buildRevealedSet(currentStep).size;
+    if (count > prevRevealCount.current) {
+      const t = setTimeout(() => fitView({ padding: 0.08, duration: 400 }), 80);
+      prevRevealCount.current = count;
+      return () => clearTimeout(t);
+    }
+    prevRevealCount.current = count;
+  }, [currentStep, fitView]);
+
+  // Build edges with reveal/highlight awareness
+  const edges: Edge[] = useMemo(() => {
+    const revealed = buildRevealedSet(currentStep);
+    const activeSet = new Set(STEPS[currentStep]?.activeEdges ?? []);
+
+    return EDGES.map((d) => {
+      const c = EDGE_COLORS[d.color] ?? EDGE_COLORS.default;
+      const ov = handleOverrides[d.id];
+      const srcRevealed = revealed.has(d.source);
+      const tgtRevealed = revealed.has(d.target);
+      const visible = srcRevealed && tgtRevealed;
+      const active = activeSet.has(d.id);
+
+      return {
+        id: d.id,
+        source: d.source,
+        sourceHandle: ov?.sourceHandle ?? d.sourceHandle,
+        target: d.target,
+        targetHandle: ov?.targetHandle ?? d.targetHandle,
+        type: "smoothstep" as const,
+        hidden: !visible,
+        animated: active,
+        style: {
+          stroke: c,
+          strokeWidth: active ? 2.5 : 1.5,
+          opacity: visible ? (active ? 1 : 0.35) : 0,
+          ...(d.dash && !active ? { strokeDasharray: "5 4" } : {}),
+        },
+        label: d.label,
+        labelStyle: d.label
+          ? {
+              fill: c,
+              fontFamily: "JetBrains Mono, monospace",
+              fontSize: 10,
+              fontWeight: 600,
+              opacity: visible ? (active ? 1 : 0.4) : 0,
+            }
+          : undefined,
+        labelBgStyle: d.label
+          ? {
+              fill: "var(--color-bg)",
+              fillOpacity: visible ? (active ? 0.9 : 0.5) : 0,
+            }
+          : undefined,
+      };
+    });
+  }, [currentStep, handleOverrides]);
 
   const onEdgeClick: EdgeMouseHandler = useCallback(
     (event, edge) => {
-      const side: "sourceHandle" | "targetHandle" = event.shiftKey
-        ? "targetHandle"
-        : "sourceHandle";
+      const rfNodes = getNodes();
+      const sourceNode = rfNodes.find((n) => n.id === edge.source);
+      const targetNode = rfNodes.find((n) => n.id === edge.target);
+      if (!sourceNode || !targetNode) return;
+
+      const rect = (event.target as Element)
+        .closest(".react-flow")
+        ?.getBoundingClientRect();
+      if (!rect) return;
+
+      const viewportEl = (event.target as Element).closest(
+        ".react-flow__viewport",
+      );
+      if (!viewportEl) return;
+      const transform = viewportEl.getAttribute("style") ?? "";
+      const m = /translate\(([^,]+)px,\s*([^)]+)px\)\s*scale\(([^)]+)\)/.exec(
+        transform,
+      );
+      const tx = m ? parseFloat(m[1]) : 0;
+      const ty = m ? parseFloat(m[2]) : 0;
+      const scale = m ? parseFloat(m[3]) : 1;
+
+      const flowX = (event.clientX - rect.left - tx) / scale;
+      const flowY = (event.clientY - rect.top - ty) / scale;
+
+      const sourceCenter = {
+        x: sourceNode.position.x + (sourceNode.measured?.width ?? 100) / 2,
+        y: sourceNode.position.y + (sourceNode.measured?.height ?? 50) / 2,
+      };
+      const targetCenter = {
+        x: targetNode.position.x + (targetNode.measured?.width ?? 100) / 2,
+        y: targetNode.position.y + (targetNode.measured?.height ?? 50) / 2,
+      };
+
+      const distSource =
+        (flowX - sourceCenter.x) ** 2 + (flowY - sourceCenter.y) ** 2;
+      const distTarget =
+        (flowX - targetCenter.x) ** 2 + (flowY - targetCenter.y) ** 2;
+
+      const side: "sourceHandle" | "targetHandle" =
+        distSource < distTarget ? "sourceHandle" : "targetHandle";
 
       const edgeDef = EDGES.find((e) => e.id === edge.id);
       if (!edgeDef) return;
@@ -170,7 +279,7 @@ export function AuthDiagram() {
         return updated;
       });
     },
-    [handleOverrides],
+    [handleOverrides, getNodes],
   );
 
   const onNC: OnNodesChange = useCallback((changes) => {
@@ -223,8 +332,11 @@ export function AuthDiagram() {
     const edgeOverrideList = EDGES.map((d) => {
       const ov = handleOverrides[d.id];
       if (!ov) return null;
-      const entry: { id: string; sourceHandle?: string; targetHandle?: string } =
-        { id: d.id };
+      const entry: {
+        id: string;
+        sourceHandle?: string;
+        targetHandle?: string;
+      } = { id: d.id };
       if (ov.sourceHandle && ov.sourceHandle !== d.sourceHandle)
         entry.sourceHandle = ov.sourceHandle;
       if (ov.targetHandle && ov.targetHandle !== d.targetHandle)
@@ -233,8 +345,10 @@ export function AuthDiagram() {
       return entry;
     }).filter(Boolean);
 
-    const output: { nodes: typeof nodeLayouts; edges?: typeof edgeOverrideList } =
-      { nodes: nodeLayouts };
+    const output: {
+      nodes: typeof nodeLayouts;
+      edges?: typeof edgeOverrideList;
+    } = { nodes: nodeLayouts };
     if (edgeOverrideList.length > 0) output.edges = edgeOverrideList;
 
     navigator.clipboard.writeText(JSON.stringify(output, null, 2));
@@ -251,8 +365,14 @@ export function AuthDiagram() {
     }
     savedPos.current = {};
     setHandleOverrides({});
-    setNodes(NODES.map((d) => defToNode(d)));
-  }, []);
+    const revealed = buildRevealedSet(currentStep);
+    const highlighted = new Set(STEPS[currentStep]?.highlightNodes ?? []);
+    setNodes(
+      NODES.map((d) =>
+        defToNode(d, undefined, revealed.has(d.id), highlighted.has(d.id)),
+      ),
+    );
+  }, [currentStep]);
 
   return (
     <div className="flex-1 min-h-0 relative">
@@ -287,5 +407,13 @@ export function AuthDiagram() {
         </button>
       </div>
     </div>
+  );
+}
+
+export function AuthDiagram({ currentStep }: { currentStep: number }) {
+  return (
+    <ReactFlowProvider>
+      <AuthDiagramInner currentStep={currentStep} />
+    </ReactFlowProvider>
   );
 }
