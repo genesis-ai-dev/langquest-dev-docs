@@ -5,8 +5,9 @@ import { MigrationProcess } from "./pages/MigrationProcess";
 import { CicdPipeline } from "./pages/CicdPipeline";
 import { DataSyncFlow } from "./pages/DataSyncFlow";
 import { AuthFlow } from "./pages/AuthFlow";
+import { TemplateDesign } from "./pages/TemplateDesign";
 
-type Page = "schema" | "migration" | "cicd" | "sync" | "auth";
+type Page = "schema" | "migration" | "cicd" | "sync" | "auth" | "template";
 
 function getPage(): Page {
   const h = window.location.hash;
@@ -14,6 +15,7 @@ function getPage(): Page {
   if (h === "#cicd") return "cicd";
   if (h === "#sync") return "sync";
   if (h === "#auth") return "auth";
+  if (h === "#template") return "template";
   return "schema";
 }
 
@@ -36,6 +38,8 @@ export default function App() {
         <DataSyncFlow />
       ) : page === "auth" ? (
         <AuthFlow />
+      ) : page === "template" ? (
+        <TemplateDesign />
       ) : (
         <DatabaseSchema />
       )}

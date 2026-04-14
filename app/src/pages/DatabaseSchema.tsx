@@ -50,6 +50,9 @@ export function DatabaseSchema() {
             <HeaderButton onClick={() => (window.location.hash = "#auth")}>
               Auth
             </HeaderButton>
+            <HeaderButton onClick={() => (window.location.hash = "#template")}>
+              Template
+            </HeaderButton>
             <HeaderButton onClick={resetLayout}>⟲ Reset</HeaderButton>
           </>
         }
