@@ -19,6 +19,7 @@ interface TNode {
   isLast: boolean;
   continuations: number[];
   linkableType?: "quest" | "asset";
+  isDownloadUnit?: boolean;
 }
 
 interface LinkedItem {
@@ -30,11 +31,11 @@ interface LinkedItem {
 const TREE: TNode[] = [
   { id: "m",  label: "📖 Prot. Bible", type: "mother",  depth: 0, isLast: true,  continuations: [] },
   { id: "b",  label: "Luke",           type: "book",    depth: 1, isLast: true,  continuations: [] },
-  { id: "c1", label: "Chapter 1",      type: "chapter", depth: 2, isLast: false, continuations: [2], linkableType: "quest" },
+  { id: "c1", label: "Chapter 1",      type: "chapter", depth: 2, isLast: false, continuations: [2], linkableType: "quest", isDownloadUnit: true },
   { id: "v1", label: "1:1",            type: "verse",   depth: 3, isLast: false, continuations: [2, 3], linkableType: "asset" },
   { id: "v2", label: "1:2",            type: "verse",   depth: 3, isLast: false, continuations: [2, 3], linkableType: "asset" },
   { id: "v3", label: "1:3",            type: "verse",   depth: 3, isLast: true,  continuations: [2], linkableType: "asset" },
-  { id: "c2", label: "Chapter 2",      type: "chapter", depth: 2, isLast: true,  continuations: [], linkableType: "quest" },
+  { id: "c2", label: "Chapter 2",      type: "chapter", depth: 2, isLast: true,  continuations: [], linkableType: "quest", isDownloadUnit: true },
   { id: "v4", label: "2:1",            type: "verse",   depth: 3, isLast: true,  continuations: [], linkableType: "asset" },
 ];
 
@@ -133,7 +134,7 @@ function TreeRow({
       </text>
       <text x={x + 6} y={y + 20}
         fontFamily="var(--font-mono)" fontSize={5.8} fill="var(--color-txt-dim)">
-        {node.type}{node.linkableType ? ` → ${node.linkableType}` : ""}
+        {node.type}{node.linkableType ? ` → ${node.linkableType}` : ""}{node.isDownloadUnit ? " · ⬇" : ""}
       </text>
     </g>
   );

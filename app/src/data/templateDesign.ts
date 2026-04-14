@@ -10,11 +10,11 @@ const DIA_TEMPLATE_TREE = `<div class="font-mono text-[.6rem] leading-[1.9] text
 <b class="text-accent-green">template_node tree (Bible example)</b><br/>
 &nbsp;&nbsp;<b class="text-accent-pink">📖 Protestant Bible</b> <span class="text-txt-dim text-[.5rem]">node_type=<b>mother</b> · shared=true · icon="book"</span><br/>
 &nbsp;&nbsp;&nbsp;&nbsp;└ <b class="text-accent-green">Luke</b> <span class="text-txt-dim text-[.5rem]">node_type=book · root_id → Protestant Bible</span><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├ <b class="text-accent-green">Chapter 1</b> <span class="text-txt-dim text-[.5rem]">node_type=chapter · linkable_type=quest · root_id → ☝</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├ <b class="text-accent-green">Chapter 1</b> <span class="text-txt-dim text-[.5rem]">node_type=chapter · linkable_type=quest · <b class="text-accent-amber">is_download_unit</b> · root_id → ☝</span><br/>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;├ <span class="text-accent-cyan">1:1</span> <span class="text-txt-dim text-[.5rem]">node_type=verse · linkable_type=asset · root_id → ☝</span><br/>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;├ <span class="text-accent-cyan">1:2</span> <span class="text-txt-dim text-[.5rem]">linkable_type=asset</span><br/>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;└ <span class="text-accent-cyan">1:3</span> <span class="text-txt-dim text-[.5rem]">linkable_type=asset</span><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ <b class="text-accent-green">Chapter 2</b> <span class="text-txt-dim text-[.5rem]">node_type=chapter · linkable_type=quest</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ <b class="text-accent-green">Chapter 2</b> <span class="text-txt-dim text-[.5rem]">node_type=chapter · linkable_type=quest · <b class="text-accent-amber">is_download_unit</b></span><br/>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ <span class="text-accent-cyan">2:1</span> <span class="text-txt-dim text-[.5rem]">node_type=verse · linkable_type=asset</span><br/>
 <span class="text-txt-dim text-[.5rem]">Every node has root_id → the mother node. Query all nodes in a template without walking the tree.</span></div>`;
 
@@ -69,6 +69,9 @@ export const NODES: DiagramNodeDef[] = [
       }),
       F("linkable_type", {
         hint: "'quest' = versions (quests) link here. 'asset' = contributions (assets) link here. null = structural grouping only.",
+      }),
+      F("is_download_unit", {
+        hint: "Marks this node as the download boundary — the level at which content is bundled for offline use. E.g. chapter nodes in Bible, pericope nodes in FIA. Flexible per-node, copies with the template.",
       }),
       F("shared", {
         hint: "Whether this template can be copied by other users/projects. Only meaningful on mother nodes (node_type = 'mother'). Copied templates start with shared = false.",
@@ -204,7 +207,7 @@ export const STEPS: Step[] = [
   {
     title: "template_node — the canonical structure",
     description:
-      'Every template tree starts with a <strong>mother</strong> node (<code>node_type = \'mother\'</code>). All descendants point directly to the mother via <code>root_id</code> — no recursive traversal needed. The tree uses <code>parent_id</code> for hierarchy and <code>order_key</code> (fractional index) for sibling ordering. <code>linkable_type</code> tells the app what kind of entity contributes at each level. The <code>icon</code> field holds a UI icon identifier (used on the mother node for project listings, but available at any level).' +
+      'Every template tree starts with a <strong>mother</strong> node (<code>node_type = \'mother\'</code>). All descendants point directly to the mother via <code>root_id</code> — no recursive traversal needed. The tree uses <code>parent_id</code> for hierarchy and <code>order_key</code> (fractional index) for sibling ordering. <code>linkable_type</code> tells the app what kind of entity contributes at each level. The <code>icon</code> field holds a UI icon identifier. <code>is_download_unit</code> marks the level at which content is bundled for offline download (e.g. chapter for Bible, pericope for FIA) — flexible per-node and copies with the template.' +
       DIA_TEMPLATE_TREE,
     highlightNodes: ["n-template"],
   },
