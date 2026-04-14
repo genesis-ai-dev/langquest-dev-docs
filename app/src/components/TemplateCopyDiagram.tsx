@@ -93,7 +93,7 @@ function TreeRow({
   const y = TOP + rowIndex * ROW_H;
   const color = nodeColor(node.type);
 
-  const lines: JSX.Element[] = [];
+  const lines: React.ReactNode[] = [];
 
   if (node.depth > 0) {
     const elbowX = x - ELBOW;
