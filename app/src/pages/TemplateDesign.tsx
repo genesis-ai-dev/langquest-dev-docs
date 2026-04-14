@@ -2,7 +2,8 @@ import { useCallback, useState } from "react";
 import { Header, HeaderButton } from "../components/Header";
 import { DiagramShell } from "../components/DiagramShell";
 import { StepWalkthrough } from "../components/StepWalkthrough";
-import { NODES, EDGES, STEPS } from "../data/templateDesign";
+import { TemplateCopyDiagram } from "../components/TemplateCopyDiagram";
+import { NODES, EDGES, STEPS, SHARING_STEP_INDEX } from "../data/templateDesign";
 
 export function TemplateDesign() {
   const [currentStep, setCurrentStep] = useState(0);
@@ -55,14 +56,18 @@ export function TemplateDesign() {
         }
       />
 
-      <DiagramShell
-        key={layoutKey}
-        storageKey="lq-template-design"
-        nodeDefs={NODES}
-        edgeDefs={EDGES}
-        highlightedNodes={step?.highlightNodes}
-        diagramTitle="template_node proposal — canonical structure separate from data spine"
-      />
+      {currentStep === SHARING_STEP_INDEX ? (
+        <TemplateCopyDiagram active />
+      ) : (
+        <DiagramShell
+          key={layoutKey}
+          storageKey="lq-template-design"
+          nodeDefs={NODES}
+          edgeDefs={EDGES}
+          highlightedNodes={step?.highlightNodes}
+          diagramTitle="template_node proposal — canonical structure separate from data spine"
+        />
+      )}
 
       <StepWalkthrough
         steps={STEPS}

@@ -8,13 +8,15 @@ function F(name: string, o?: Partial<FieldDef>): FieldDef {
 
 const DIA_TEMPLATE_TREE = `<div class="font-mono text-[.6rem] leading-[1.9] text-txt-muted mt-1.5">
 <b class="text-accent-green">template_node tree (Bible example)</b><br/>
-&nbsp;&nbsp;└ <b class="text-accent-green">Luke</b> <span class="text-txt-dim text-[.5rem]">node_type=book · order_key="a"</span><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;├ <b class="text-accent-green">Chapter 1</b> <span class="text-txt-dim text-[.5rem]">node_type=chapter · linkable_type=quest</span><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;├ <span class="text-accent-cyan">1:1</span> <span class="text-txt-dim text-[.5rem]">node_type=verse · linkable_type=asset</span><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;├ <span class="text-accent-cyan">1:2</span> <span class="text-txt-dim text-[.5rem]">linkable_type=asset</span><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;└ <span class="text-accent-cyan">1:3</span> <span class="text-txt-dim text-[.5rem]">linkable_type=asset</span><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;└ <b class="text-accent-green">Chapter 2</b> <span class="text-txt-dim text-[.5rem]">node_type=chapter · linkable_type=quest</span><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ <span class="text-accent-cyan">2:1</span> <span class="text-txt-dim text-[.5rem]">node_type=verse · linkable_type=asset</span></div>`;
+&nbsp;&nbsp;<b class="text-accent-pink">📖 Protestant Bible</b> <span class="text-txt-dim text-[.5rem]">node_type=<b>mother</b> · shared=true · icon="book"</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;└ <b class="text-accent-green">Luke</b> <span class="text-txt-dim text-[.5rem]">node_type=book · root_id → Protestant Bible</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├ <b class="text-accent-green">Chapter 1</b> <span class="text-txt-dim text-[.5rem]">node_type=chapter · linkable_type=quest · root_id → ☝</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;├ <span class="text-accent-cyan">1:1</span> <span class="text-txt-dim text-[.5rem]">node_type=verse · linkable_type=asset · root_id → ☝</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;├ <span class="text-accent-cyan">1:2</span> <span class="text-txt-dim text-[.5rem]">linkable_type=asset</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;└ <span class="text-accent-cyan">1:3</span> <span class="text-txt-dim text-[.5rem]">linkable_type=asset</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ <b class="text-accent-green">Chapter 2</b> <span class="text-txt-dim text-[.5rem]">node_type=chapter · linkable_type=quest</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ <span class="text-accent-cyan">2:1</span> <span class="text-txt-dim text-[.5rem]">node_type=verse · linkable_type=asset</span><br/>
+<span class="text-txt-dim text-[.5rem]">Every node has root_id → the mother node. Query all nodes in a template without walking the tree.</span></div>`;
 
 const DIA_VERSIONS = `<div class="font-mono text-[.6rem] leading-[1.9] text-txt-muted mt-1.5">
 <b class="text-accent-purple">quest versions of Chapter 1</b><br/>
@@ -41,18 +43,26 @@ export const NODES: DiagramNodeDef[] = [
     w: 280,
     fields: [
       F("id", { pk: true }),
+      F("root_id", {
+        fk: { node: "n-template", field: "id" },
+        selfRef: true,
+        hint: "Direct FK to the root 'mother' node of this template. Every child points here — avoids recursive tree traversal to find siblings, query completion, etc. The mother node itself has root_id = null.",
+      }),
       F("parent_id", {
         fk: { node: "n-template", field: "id" },
         selfRef: true,
-        hint: "Tree hierarchy. null = root node. Multiple roots per project = multiple templates.",
+        hint: "Tree hierarchy — the immediate parent. null only for the mother node.",
       }),
       F("project_id", {
         fk: { node: "n-project", field: "id" },
-        hint: "Which project owns this template tree.",
+        hint: "Which project owns this template tree. Set on every node for fast filtering.",
       }),
       F("name"),
+      F("icon", {
+        hint: "Icon identifier for UI display (e.g. Lucide icon name, emoji, or image ref). Primarily used on the mother node but available at any level.",
+      }),
       F("node_type", {
-        hint: "Semantic type: book, chapter, verse, pericope, section, word, scene, timestamp, custom, etc.",
+        hint: "'mother' = the template root. Other types: book, chapter, verse, pericope, section, word, scene, timestamp, custom, etc.",
       }),
       F("order_key", {
         hint: "Fractional-index string for sibling ordering. Lexicographic sort. Insert between any two siblings with zero updates to other rows.",
@@ -60,10 +70,13 @@ export const NODES: DiagramNodeDef[] = [
       F("linkable_type", {
         hint: "'quest' = versions (quests) link here. 'asset' = contributions (assets) link here. null = structural grouping only.",
       }),
-      F("source_template_node_id", {
+      F("shared", {
+        hint: "Whether this template can be copied by other users/projects. Only meaningful on mother nodes (node_type = 'mother'). Copied templates start with shared = false.",
+      }),
+      F("source_copied_id", {
         fk: { node: "n-template", field: "id" },
         selfRef: true,
-        hint: "Copy-on-instantiate provenance: tracks which shared template node this was cloned from.",
+        hint: "Copy provenance: tracks which shared template node this was cloned from. Set on the mother of a copied template.",
       }),
       F("active", {
         hint: "Soft-delete. Inactive nodes are hidden from new work but preserved for existing contributions.",
@@ -179,6 +192,8 @@ export const EDGES: DiagramEdgeDef[] = [
   { from: "n-asset", fromField: "span_end_node_id", to: "n-template", toField: "id", dash: true },
 ];
 
+export const SHARING_STEP_INDEX = 7;
+
 export const STEPS: Step[] = [
   {
     title: "Template design proposal — overview",
@@ -189,7 +204,7 @@ export const STEPS: Step[] = [
   {
     title: "template_node — the canonical structure",
     description:
-      'Each row is one node in a project\'s hierarchical structure. The tree uses <code>parent_id</code> (self-ref) and <code>order_key</code> (fractional index) for ordering. <code>node_type</code> carries semantic meaning. <code>linkable_type</code> tells the app what kind of entity contributes at this level — quests at chapter level, assets at verse level, etc.' +
+      'Every template tree starts with a <strong>mother</strong> node (<code>node_type = \'mother\'</code>). All descendants point directly to the mother via <code>root_id</code> — no recursive traversal needed. The tree uses <code>parent_id</code> for hierarchy and <code>order_key</code> (fractional index) for sibling ordering. <code>linkable_type</code> tells the app what kind of entity contributes at each level. The <code>icon</code> field holds a UI icon identifier (used on the mother node for project listings, but available at any level).' +
       DIA_TEMPLATE_TREE,
     highlightNodes: ["n-template"],
   },
@@ -240,18 +255,33 @@ export const STEPS: Step[] = [
     highlightNodes: ["n-template", "n-asset"],
   },
   {
+    title: "Sharing & copying templates",
+    description:
+      'The <code>shared</code> flag on a mother node controls whether others can copy the template. When copied, the entire tree is duplicated into the target project with new IDs. The copied mother gets <code>source_copied_id</code> → the original mother (provenance) and <code>shared = false</code> by default. Changes to a copy never affect the original or other copies. The new owner can set <code>shared = true</code> on their copy to share their modified version — it must have a unique <code>name</code>.' +
+      `<div class="font-mono text-[.6rem] leading-[1.9] text-txt-muted mt-1.5">
+<b class="text-accent-green">1.</b> Ana creates <b class="text-accent-pink">"Protestant Bible"</b> <span class="text-txt-dim text-[.5rem]">shared=true</span><br/>
+<b class="text-accent-green">2.</b> Ben copies it for his Yoruba project<br/>
+&nbsp;&nbsp;&nbsp;→ new mother <b class="text-accent-purple">"Protestant Bible"</b> <span class="text-txt-dim text-[.5rem]">shared=false · source_copied_id → Ana's mother</span><br/>
+&nbsp;&nbsp;&nbsp;→ entire tree duplicated with new IDs, project_id = Ben's project<br/>
+<b class="text-accent-green">3.</b> Ben modifies his copy (adds nodes, reorders, renames)<br/>
+&nbsp;&nbsp;&nbsp;→ Ana's original is unaffected<br/>
+<b class="text-accent-green">4.</b> Ben sets <code>shared = true</code>, renames to <b class="text-accent-purple">"Yoruba Protestant Bible"</b><br/>
+&nbsp;&nbsp;&nbsp;→ others can now copy Ben's modified version</div>`,
+    highlightNodes: ["n-template"],
+  },
+  {
     title: "Multiple templates per project",
     description:
-      'A project can contain multiple template trees — just multiple root template_nodes (<code>parent_id = null</code>) within the same <code>project_id</code>. A Yoruba project could host a Bible tree, a dictionary tree, and a story collection simultaneously.' +
+      'A project can contain multiple template trees — just multiple mother nodes within the same <code>project_id</code>. Each mother is a separate template. A Yoruba project could host a Bible tree, a dictionary tree, and a story collection simultaneously.' +
       `<div class="font-mono text-[.6rem] leading-[1.9] text-txt-muted mt-1.5">
 <b class="text-accent-cyan">Project: Yoruba Documentation</b><br/>
-&nbsp;&nbsp;├ <b class="text-accent-green">Bible – Luke</b> <span class="text-txt-dim text-[.5rem]">template_node root, parent_id=null</span><br/>
-&nbsp;&nbsp;│&nbsp;&nbsp;├ Chapter 1 → verses…<br/>
-&nbsp;&nbsp;│&nbsp;&nbsp;└ Chapter 2 → verses…<br/>
-&nbsp;&nbsp;├ <b class="text-accent-green">Dictionary</b> <span class="text-txt-dim text-[.5rem]">template_node root, parent_id=null</span><br/>
+&nbsp;&nbsp;├ <b class="text-accent-pink">📖 Protestant Bible</b> <span class="text-txt-dim text-[.5rem]">mother node · icon="book"</span><br/>
+&nbsp;&nbsp;│&nbsp;&nbsp;├ Luke → Chapter 1 → verses…<br/>
+&nbsp;&nbsp;│&nbsp;&nbsp;└ Luke → Chapter 2 → verses…<br/>
+&nbsp;&nbsp;├ <b class="text-accent-pink">📚 Dictionary</b> <span class="text-txt-dim text-[.5rem]">mother node · icon="library"</span><br/>
 &nbsp;&nbsp;│&nbsp;&nbsp;├ Animals → [Cat, Dog, …]<br/>
 &nbsp;&nbsp;│&nbsp;&nbsp;└ Colors → [Red, Blue, …]<br/>
-&nbsp;&nbsp;└ <b class="text-accent-green">Story Collection</b> <span class="text-txt-dim text-[.5rem]">template_node root, parent_id=null</span><br/>
+&nbsp;&nbsp;└ <b class="text-accent-pink">🎙 Story Collection</b> <span class="text-txt-dim text-[.5rem]">mother node · icon="mic"</span><br/>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ Creation Stories → [Story 1, Story 2, …]</div>`,
     highlightNodes: ["n-template", "n-project"],
   },
