@@ -35,7 +35,7 @@ export function TemplateDesign() {
     <div className="h-screen flex flex-col overflow-hidden">
       <Header
         title="Template Design"
-        subtitle="LangQuest · Proposal"
+        subtitle="LangQuest · Implementation"
         actions={
           <>
             <HeaderButton onClick={() => (window.location.hash = "")}>
@@ -43,6 +43,9 @@ export function TemplateDesign() {
             </HeaderButton>
             <HeaderButton onClick={() => (window.location.hash = "#migration")}>
               Migration
+            </HeaderButton>
+            <HeaderButton onClick={() => (window.location.hash = "#lifecycle")}>
+              Lifecycle
             </HeaderButton>
             <HeaderButton onClick={() => (window.location.hash = "#sync")}>
               Sync
@@ -65,7 +68,7 @@ export function TemplateDesign() {
           nodeDefs={NODES}
           edgeDefs={EDGES}
           highlightedNodes={step?.highlightNodes}
-          diagramTitle="template_node proposal — canonical structure separate from data spine"
+          diagramTitle="template — canonical structure separate from data spine"
         />
       )}
 
@@ -73,7 +76,7 @@ export function TemplateDesign() {
         steps={STEPS}
         currentStep={currentStep}
         onStepChange={setCurrentStep}
-        phaseLabel="Proposal"
+        phaseLabel="Implementation"
         phaseColor="var(--color-accent-green)"
       />
     </div>

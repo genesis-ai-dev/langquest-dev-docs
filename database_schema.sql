@@ -611,3 +611,84 @@ CREATE TABLE public.vote (
   CONSTRAINT votes_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES public.profile(id),
   CONSTRAINT vote_asset_id_fkey FOREIGN KEY (asset_id) REFERENCES public.asset(id)
 );
+
+-- ============================================================================
+-- Template System (v3.0)
+-- ============================================================================
+
+-- Published templates are immutable snapshots. Each publish creates a new row.
+-- No pessimistic locking (locked_by/locked_at/structure_version removed).
+-- Editing happens locally in browser IndexedDB.
+CREATE TABLE public.template (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  slug text,
+  name text NOT NULL,
+  description text,
+  icon text,
+  structure jsonb NOT NULL,
+  source_languoid_id uuid,
+  copied_from_template_id uuid,                -- provenance: which template this was forked from
+  auto_sync boolean NOT NULL DEFAULT false,
+  shared boolean NOT NULL DEFAULT false,
+  active boolean NOT NULL DEFAULT true,
+  creator_id uuid,
+  download_profiles uuid[] NOT NULL DEFAULT '{}',
+  project_count integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  last_updated timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT template_pkey PRIMARY KEY (id),
+  CONSTRAINT template_creator_fkey FOREIGN KEY (creator_id) REFERENCES public.profile(id),
+  CONSTRAINT template_source_languoid_fkey FOREIGN KEY (source_languoid_id) REFERENCES public.languoid(id),
+  CONSTRAINT template_copied_from_fkey FOREIGN KEY (copied_from_template_id) REFERENCES public.template(id)
+);
+
+CREATE TABLE public.project_template_link (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  project_id uuid NOT NULL,
+  template_id uuid NOT NULL,
+  role text,
+  active boolean NOT NULL DEFAULT true,
+  frozen boolean NOT NULL DEFAULT false,       -- prevents re-pointing this link to a new template
+  download_profiles uuid[] NOT NULL DEFAULT '{}',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT project_template_link_pkey PRIMARY KEY (id),
+  CONSTRAINT project_template_link_project_fkey FOREIGN KEY (project_id) REFERENCES public.project(id) ON DELETE CASCADE,
+  CONSTRAINT project_template_link_template_fkey FOREIGN KEY (template_id) REFERENCES public.template(id),
+  CONSTRAINT project_template_link_unique UNIQUE (project_id, template_id)
+);
+
+-- Each published fork gets a revision row for audit history.
+-- structure_version removed (ordering by saved_at DESC instead).
+CREATE TABLE public.template_revision (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  template_id uuid NOT NULL,
+  structure jsonb NOT NULL,
+  actions jsonb,
+  saved_by uuid,
+  saved_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT template_revision_pkey PRIMARY KEY (id),
+  CONSTRAINT template_revision_template_fkey FOREIGN KEY (template_id) REFERENCES public.template(id) ON DELETE CASCADE,
+  CONSTRAINT template_revision_saved_by_fkey FOREIGN KEY (saved_by) REFERENCES public.profile(id)
+);
+
+-- RPCs:
+-- publish_template(p_source_template_id, p_structure, p_name, p_description, p_icon, p_shared, p_target_link_ids, p_actions)
+--   Always inserts a new template row (fork-always model).
+--   Re-points selected non-frozen project_template_link rows to the new template.
+--   Records a template_revision for audit.
+-- fork_template(p_source_id, p_name) — create named clone for independent use
+-- save_template_metadata(p_template_id, p_name, p_description, p_icon, p_shared) — in-place metadata update
+-- get_template_lineage(p_template_id) — returns full fork family tree as JSONB array
+-- get_template_revisions(p_template_id) — returns revision history for a template
+-- check_template_compatibility(p_template_id, p_target_link_ids, p_node_ids) — validates node coverage before re-pointing
+-- adopt_template_fork(p_link_id, p_target_template_id) — re-points a project_template_link after ownership + compatibility validation
+-- link_template_to_project(p_project_id, p_template_id) — creates a new project_template_link for an existing project
+
+-- New columns on quest (v3.0):
+--   template_link_id uuid REFERENCES project_template_link(id)
+--   template_node_id text
+
+-- New columns on asset (v3.0):
+--   template_link_id uuid REFERENCES project_template_link(id)
+--   template_node_id text
+--   span_end_template_node_id text

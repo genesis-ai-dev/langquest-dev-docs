@@ -7,92 +7,115 @@ function F(name: string, o?: Partial<FieldDef>): FieldDef {
 }
 
 const DIA_TEMPLATE_TREE = `<div class="font-mono text-[.6rem] leading-[1.9] text-txt-muted mt-1.5">
-<b class="text-accent-green">template_node tree (Bible example)</b><br/>
-&nbsp;&nbsp;<b class="text-accent-pink">📖 Protestant Bible</b> <span class="text-txt-dim text-[.5rem]">node_type=<b>mother</b> · shared=true · icon="book"</span><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;└ <b class="text-accent-green">Luke</b> <span class="text-txt-dim text-[.5rem]">node_type=book · root_id → Protestant Bible</span><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├ <b class="text-accent-green">Chapter 1</b> <span class="text-txt-dim text-[.5rem]">node_type=chapter · linkable_type=quest · <b class="text-accent-amber">is_download_unit</b> · root_id → ☝</span><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;├ <span class="text-accent-cyan">1:1</span> <span class="text-txt-dim text-[.5rem]">node_type=verse · linkable_type=asset · root_id → ☝</span><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;├ <span class="text-accent-cyan">1:2</span> <span class="text-txt-dim text-[.5rem]">linkable_type=asset</span><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;└ <span class="text-accent-cyan">1:3</span> <span class="text-txt-dim text-[.5rem]">linkable_type=asset</span><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ <b class="text-accent-green">Chapter 2</b> <span class="text-txt-dim text-[.5rem]">node_type=chapter · linkable_type=quest · <b class="text-accent-amber">is_download_unit</b></span><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ <span class="text-accent-cyan">2:1</span> <span class="text-txt-dim text-[.5rem]">node_type=verse · linkable_type=asset</span><br/>
-<span class="text-txt-dim text-[.5rem]">Every node has root_id → the mother node. Query all nodes in a template without walking the tree.</span></div>`;
+<b class="text-accent-green">template.structure (Bible example)</b><br/>
+&nbsp;&nbsp;<b class="text-accent-pink">📖 root</b> <span class="text-txt-dim text-[.5rem]">id=root · node_type=root</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;└ <b class="text-accent-green">Luke</b> <span class="text-txt-dim text-[.5rem]">id=x7kQ3mP9nR · node_type=book · linkable_type=quest</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├ <b class="text-accent-green">Chapter 1</b> <span class="text-txt-dim text-[.5rem]">id=Rj2wLp8vKe · node_type=chapter · linkable_type=quest · <b class="text-accent-amber">is_download_unit</b></span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;├ <span class="text-accent-cyan">1:1</span> <span class="text-txt-dim text-[.5rem]">id=mN4tYq6hXa · linkable_type=asset · allows_spanning</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;├ <span class="text-accent-cyan">1:2</span> <span class="text-txt-dim text-[.5rem]">id=bF9cWs3dZv · linkable_type=asset</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;└ <span class="text-accent-cyan">1:3</span> <span class="text-txt-dim text-[.5rem]">id=pL7eUn2gTk · linkable_type=asset</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ <b class="text-accent-green">Chapter 2</b> <span class="text-txt-dim text-[.5rem]">id=hD5aVm1fQw · node_type=chapter · <b class="text-accent-amber">is_download_unit</b></span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ <span class="text-accent-cyan">2:1</span> <span class="text-txt-dim text-[.5rem]">id=cJ8rXo4iSy · linkable_type=asset</span><br/>
+<span class="text-txt-dim text-[.5rem]">Hierarchy, order, depth are intrinsic to JSON nesting. Node IDs are opaque nanoid(10).</span></div>`;
 
 const DIA_VERSIONS = `<div class="font-mono text-[.6rem] leading-[1.9] text-txt-muted mt-1.5">
 <b class="text-accent-purple">quest versions of Chapter 1</b><br/>
-&nbsp;&nbsp;├ <span class="text-accent-purple">quest q-A</span> <span class="text-txt-dim text-[.5rem]">template_node_id → "Chapter 1" · creator=Ana</span><br/>
-&nbsp;&nbsp;└ <span class="text-accent-purple">quest q-B</span> <span class="text-txt-dim text-[.5rem]">template_node_id → "Chapter 1" · creator=Ben</span><br/>
-<span class="text-txt-dim text-[.5rem] ml-4">Both quests point to the same template_node → they are versions.</span></div>`;
+&nbsp;&nbsp;├ <span class="text-accent-purple">quest q-A</span> <span class="text-txt-dim text-[.5rem]">template_node_id → "Rj2wLp8vKe" · creator=Ana</span><br/>
+&nbsp;&nbsp;└ <span class="text-accent-purple">quest q-B</span> <span class="text-txt-dim text-[.5rem]">template_node_id → "Rj2wLp8vKe" · creator=Ben</span><br/>
+<span class="text-txt-dim text-[.5rem] ml-4">Both quests reference the same template node → they are versions.</span></div>`;
 
 const DIA_SPANNING = `<div class="font-mono text-[.6rem] leading-[1.9] text-txt-muted mt-1.5">
 <b class="text-accent-amber">Ana's assets</b> (version q-A — each verse separate)<br/>
-&nbsp;&nbsp;├ <span class="text-accent-amber">a-1</span> template_node_id→<span class="text-accent-cyan">v1:1</span> · span_end=<span class="text-txt-dim">null</span> <span class="text-accent-green text-[.5rem]">← dedicated</span><br/>
-&nbsp;&nbsp;├ <span class="text-accent-amber">a-2</span> template_node_id→<span class="text-accent-cyan">v1:2</span> · span_end=<span class="text-txt-dim">null</span> <span class="text-accent-green text-[.5rem]">← dedicated</span><br/>
-&nbsp;&nbsp;└ <span class="text-accent-amber">a-3</span> template_node_id→<span class="text-accent-cyan">v1:3</span> · span_end=<span class="text-txt-dim">null</span> <span class="text-accent-green text-[.5rem]">← dedicated</span><br/>
-<b class="text-accent-amber">Ben's assets</b> (version q-B — combined v1:1–2)<br/>
-&nbsp;&nbsp;├ <span class="text-accent-amber">a-4</span> template_node_id→<span class="text-accent-cyan">v1:1</span> · span_end→<span class="text-accent-cyan">v1:2</span> <span class="text-accent-pink text-[.5rem]">← SPANNING</span><br/>
-&nbsp;&nbsp;└ <span class="text-accent-amber">a-5</span> template_node_id→<span class="text-accent-cyan">v1:3</span> · span_end=<span class="text-txt-dim">null</span> <span class="text-accent-green text-[.5rem]">← dedicated</span></div>`;
+&nbsp;&nbsp;├ <span class="text-accent-amber">a-1</span> template_node_id→<span class="text-accent-cyan">mN4tYq6hXa</span> · span_end=<span class="text-txt-dim">null</span> <span class="text-accent-green text-[.5rem]">← dedicated</span><br/>
+&nbsp;&nbsp;├ <span class="text-accent-amber">a-2</span> template_node_id→<span class="text-accent-cyan">bF9cWs3dZv</span> · span_end=<span class="text-txt-dim">null</span> <span class="text-accent-green text-[.5rem]">← dedicated</span><br/>
+&nbsp;&nbsp;└ <span class="text-accent-amber">a-3</span> template_node_id→<span class="text-accent-cyan">pL7eUn2gTk</span> · span_end=<span class="text-txt-dim">null</span> <span class="text-accent-green text-[.5rem]">← dedicated</span><br/>
+<b class="text-accent-amber">Ben's assets</b> (version q-B — combined 1:1–2)<br/>
+&nbsp;&nbsp;├ <span class="text-accent-amber">a-4</span> template_node_id→<span class="text-accent-cyan">mN4tYq6hXa</span> · span_end→<span class="text-accent-cyan">bF9cWs3dZv</span> <span class="text-accent-pink text-[.5rem]">← SPANNING</span><br/>
+&nbsp;&nbsp;└ <span class="text-accent-amber">a-5</span> template_node_id→<span class="text-accent-cyan">pL7eUn2gTk</span> · span_end=<span class="text-txt-dim">null</span> <span class="text-accent-green text-[.5rem]">← dedicated</span></div>`;
 
 export const NODES: DiagramNodeDef[] = [
   {
     id: "n-template",
-    title: "template_node",
-    sub: "canonical structure (NEW)",
+    title: "template",
+    sub: "JSONB structure tree (NEW)",
     x: 122,
     y: 329,
-    w: 280,
+    w: 300,
     fields: [
       F("id", { pk: true }),
-      F("root_id", {
-        fk: { node: "n-template", field: "id" },
-        selfRef: true,
-        hint: "Direct FK to the root 'mother' node of this template. Every child points here — avoids recursive tree traversal to find siblings, query completion, etc. The mother node itself has root_id = null.",
-      }),
-      F("parent_id", {
-        fk: { node: "n-template", field: "id" },
-        selfRef: true,
-        hint: "Tree hierarchy — the immediate parent. null only for the mother node.",
-      }),
-      F("project_id", {
-        fk: { node: "n-project", field: "id" },
-        hint: "Which project owns this template tree. Set on every node for fast filtering.",
+      F("slug", {
+        hint: "Unique human-readable slug for standard templates. e.g. 'protestant-bible-v2-frozen'.",
       }),
       F("name"),
-      F("icon", {
-        hint: "Icon identifier for UI display (e.g. Lucide icon name, emoji, or image ref). Primarily used on the mother node but available at any level.",
+      F("icon"),
+      F("structure", {
+        hint: "JSONB tree of TemplateNode objects. Contains the full template hierarchy: node IDs, names, types, children. Node IDs are opaque nanoid(10).",
       }),
-      F("node_type", {
-        hint: "'mother' = the template root. Other types: book, chapter, verse, pericope, section, word, scene, timestamp, custom, etc.",
+      F("source_languoid_id", {
+        fk: { node: "n-languoid", field: "id" },
+        hint: "Languoid this template is designed for. Standard templates exist per-languoid.",
       }),
-      F("order_key", {
-        hint: "Fractional-index string for sibling ordering. Lexicographic sort. Insert between any two siblings with zero updates to other rows.",
-      }),
-      F("linkable_type", {
-        hint: "'quest' = versions (quests) link here. 'asset' = contributions (assets) link here. null = structural grouping only.",
-      }),
-      F("is_download_unit", {
-        hint: "Marks this node as the download boundary — the level at which content is bundled for offline use. E.g. chapter nodes in Bible, pericope nodes in FIA. Flexible per-node, copies with the template.",
-      }),
-      F("shared", {
-        hint: "Whether this template can be copied by other users/projects. Only meaningful on mother nodes (node_type = 'mother'). Copied templates start with shared = false.",
-      }),
-      F("source_copied_id", {
+      F("copied_from_template_id", {
         fk: { node: "n-template", field: "id" },
         selfRef: true,
-        hint: "Copy provenance: tracks which shared template node this was cloned from. Set on the mother of a copied template.",
+        hint: "Fork provenance. Points to the template this was cloned from.",
       }),
-      F("active", {
-        hint: "Soft-delete. Inactive nodes are hidden from new work but preserved for existing contributions.",
+      F("auto_sync", {
+        hint: "If true, template syncs globally via PowerSync (standard templates). Dev-only, not user-editable.",
       }),
-      F("metadata", {
-        hint: "Flexible JSON for node-specific data (e.g. timestamp ranges, custom fields).",
+      F("shared", {
+        hint: "Whether other users can see and fork this template.",
       }),
+      F("description", {
+        hint: "Optional description for the template.",
+      }),
+      F("project_count", {
+        hint: "Maintained by trigger on project_template_link. Used for popularity sorting.",
+      }),
+      F("creator_id"),
+    ],
+  },
+  {
+    id: "n-pbl",
+    title: "project_template_link",
+    sub: "links project to template (NEW)",
+    x: -100,
+    y: 329,
+    w: 220,
+    fields: [
+      F("id", { pk: true }),
+      F("project_id", { fk: { node: "n-project", field: "id" } }),
+      F("template_id", { fk: { node: "n-template", field: "id" } }),
+      F("role", {
+        hint: "Optional label like 'primary'. A project can link to multiple templates.",
+      }),
+      F("active"),
+      F("frozen", {
+        hint: "If true, this link cannot be re-pointed to a new template. Set on legacy backfilled projects.",
+      }),
+      F("download_profiles"),
+    ],
+  },
+  {
+    id: "n-revision",
+    title: "template_revision",
+    sub: "audit history (NEW, server-only)",
+    x: 122,
+    y: 600,
+    w: 250,
+    fields: [
+      F("id", { pk: true }),
+      F("template_id", { fk: { node: "n-template", field: "id" } }),
+      F("structure", { hint: "Snapshot of the full JSONB structure at this version." }),
+      F("actions", { hint: "Structured diff (nodes added/removed/renamed/moved) computed at publish time." }),
+      F("saved_by"),
+      F("saved_at"),
     ],
   },
   {
     id: "n-project",
     title: "project",
-    sub: "workspace (minimal changes)",
+    sub: "workspace (unchanged)",
     x: -224,
     y: -11,
     w: 200,
@@ -100,7 +123,7 @@ export const NODES: DiagramNodeDef[] = [
       F("id", { pk: true }),
       F("name"),
       F("template", {
-        hint: "Legacy enum: unstructured | bible | fia. Becomes vestigial once template_node trees are adopted.",
+        hint: "Legacy enum: unstructured | bible | fia. Vestigial once template links are adopted.",
       }),
       F("creator_id"),
       F("private"),
@@ -109,26 +132,29 @@ export const NODES: DiagramNodeDef[] = [
   {
     id: "n-quest",
     title: "quest",
-    sub: "version of work (add 1 col)",
+    sub: "version of work (add 2 cols)",
     x: 817,
     y: 106,
     w: 250,
     fields: [
       F("id", { pk: true }),
       F("project_id", { fk: { node: "n-project", field: "id" } }),
+      F("template_link_id", {
+        fk: { node: "n-pbl", field: "id" },
+        hint: "NEW — FK to project_template_link. Identifies which template tree this quest belongs to.",
+      }),
       F("template_node_id", {
-        fk: { node: "n-template", field: "id" },
-        hint: "NEW — Links quest to a template node. Multiple quests sharing the same template_node_id = versions of that structural unit.",
+        hint: "NEW — Opaque node ID within the template structure. Multiple quests sharing the same node = versions.",
       }),
       F("parent_id", {
         fk: { node: "n-quest", field: "id" },
         selfRef: true,
-        hint: "Retained for unstructured projects. In templated projects, hierarchy comes from template_node.parent_id instead.",
+        hint: "Retained for unstructured/legacy projects.",
       }),
       F("name"),
       F("creator_id"),
       F("metadata", {
-        hint: "Legacy JSON (bible/fia positioning). Redundant for templated projects — position is encoded by template_node_id.",
+        hint: "Legacy JSON (bible/fia positioning). Redundant once template_node_id is set.",
       }),
       F("download_profiles"),
     ],
@@ -150,20 +176,22 @@ export const NODES: DiagramNodeDef[] = [
   {
     id: "n-asset",
     title: "asset",
-    sub: "contribution (add 2 cols)",
+    sub: "contribution (add 3 cols)",
     x: 820,
     y: 389,
     w: 270,
     fields: [
       F("id", { pk: true }),
       F("project_id", { fk: { node: "n-project", field: "id" } }),
-      F("template_node_id", {
-        fk: { node: "n-template", field: "id" },
-        hint: "NEW — What structural node this contribution is for (e.g. a verse). The 'start' of the range if spanning.",
+      F("template_link_id", {
+        fk: { node: "n-pbl", field: "id" },
+        hint: "NEW — FK to project_template_link.",
       }),
-      F("span_end_node_id", {
-        fk: { node: "n-template", field: "id" },
-        hint: "NEW — If set, this asset spans from template_node_id through span_end_node_id. If null, it's a single-node contribution. Both are real FKs.",
+      F("template_node_id", {
+        hint: "NEW — What template node this contribution is for. The 'start' of the range if spanning.",
+      }),
+      F("span_end_template_node_id", {
+        hint: "NEW — If set, asset spans from template_node_id through this node. If null, single-node contribution.",
       }),
       F("content_type", {
         hint: "'source', 'translation', or 'transcription'.",
@@ -171,127 +199,103 @@ export const NODES: DiagramNodeDef[] = [
       F("source_asset_id", {
         fk: { node: "n-asset", field: "id" },
         selfRef: true,
-        hint: "Translation/transcription chain. Points to the source asset this was derived from.",
       }),
-      F("order_index", {
-        hint: "Display ordering within a quest. Could migrate to fractional indexing too.",
-      }),
-      F("metadata", {
-        hint: "Legacy verse range data. Redundant once template_node_id + span_end_node_id encode position.",
-      }),
+      F("order_index"),
+      F("metadata"),
       F("download_profiles"),
     ],
   },
 ];
 
 export const EDGES: DiagramEdgeDef[] = [
-  { from: "n-template", fromField: "project_id", to: "n-project", toField: "id" },
+  { from: "n-pbl", fromField: "project_id", to: "n-project", toField: "id" },
+  { from: "n-pbl", fromField: "template_id", to: "n-template", toField: "id" },
+  { from: "n-revision", fromField: "template_id", to: "n-template", toField: "id", dash: true },
   { from: "n-quest", fromField: "project_id", to: "n-project", toField: "id" },
-  { from: "n-quest", fromField: "template_node_id", to: "n-template", toField: "id", dash: true },
+  { from: "n-quest", fromField: "template_link_id", to: "n-pbl", toField: "id", dash: true },
   { from: "n-qal", fromField: "quest_id", to: "n-quest", toField: "id" },
   { from: "n-qal", fromField: "asset_id", to: "n-asset", toField: "id" },
   { from: "n-asset", fromField: "project_id", to: "n-project", toField: "id" },
-  { from: "n-asset", fromField: "template_node_id", to: "n-template", toField: "id", dash: true },
-  { from: "n-asset", fromField: "span_end_node_id", to: "n-template", toField: "id", dash: true },
+  { from: "n-asset", fromField: "template_link_id", to: "n-pbl", toField: "id", dash: true },
 ];
 
-export const SHARING_STEP_INDEX = 7;
+export const SHARING_STEP_INDEX = 8;
 
 export const STEPS: Step[] = [
   {
-    title: "Template design proposal — overview",
+    title: "Template-only template system — overview",
     description:
-      'A <strong>template_node</strong> table defines the canonical project structure — separate from the working quest/asset spine. Quests and assets link to template nodes via FK, but the structure lives in its own table. <strong>Drag</strong> tables to rearrange, click <strong>▶</strong> to expand fields, hover <strong>?</strong> for details. <em>Dashed edges</em> are the new FK relationships.',
-    highlightNodes: ["n-template", "n-project", "n-quest", "n-qal", "n-asset"],
+      'A <strong>template</strong> table stores the full template structure as JSONB. Projects link to templates via <strong>project_template_link</strong>. Quests and assets reference template nodes by opaque ID. Editing uses a fork-based model: drafts are local in IndexedDB, and publishing always creates a new template row. The mobile app reads plain JSONB snapshots. <em>Dashed edges</em> are the new FK relationships.',
+    highlightNodes: ["n-template", "n-pbl", "n-project", "n-quest", "n-qal", "n-asset", "n-revision"],
   },
   {
-    title: "template_node — the canonical structure",
+    title: "template — structure as JSONB",
     description:
-      'Every template tree starts with a <strong>mother</strong> node (<code>node_type = \'mother\'</code>). All descendants point directly to the mother via <code>root_id</code> — no recursive traversal needed. The tree uses <code>parent_id</code> for hierarchy and <code>order_key</code> (fractional index) for sibling ordering. <code>linkable_type</code> tells the app what kind of entity contributes at each level. The <code>icon</code> field holds a UI icon identifier. <code>is_download_unit</code> marks the level at which content is bundled for offline download (e.g. chapter for Bible, pericope for FIA) — flexible per-node and copies with the template.' +
+      'Each template stores a full tree in <code>structure</code> (JSONB). Node IDs are opaque <code>nanoid(10)</code>. Hierarchy, order, and depth are intrinsic to JSON nesting — no separate parent_id or order_key columns needed. Once published, a template row is immutable — edits always produce a new fork.' +
       DIA_TEMPLATE_TREE,
     highlightNodes: ["n-template"],
   },
   {
+    title: "Fork-based editing lifecycle",
+    description:
+      'Template editing has two modes: <strong>starting from scratch</strong> (new blank template) or <strong>updating an existing template</strong> (fork the current version). In both cases, drafts live in browser IndexedDB with full undo/redo. No locks are needed — each editor works on their own local copy. Publishing always creates a new template row. There is no concurrent-write problem because published rows are immutable.',
+    highlightNodes: ["n-template"],
+  },
+  {
+    title: "Hard delete vs hidden nodes",
+    description:
+      'Users simply delete nodes in the editor — all deletions set <code>deleted: true</code> on the node in the draft. At <strong>publish time</strong>, the system decides what to do: for forks applied to <strong>existing projects</strong>, tombstones (<code>deleted: true</code>) are preserved so existing quests/assets keep valid node references. For forks applied to <strong>new projects</strong> or made generally available, tombstones are stripped entirely. The editor surfaces deleted nodes as greyed-out entries that can be restored.',
+    highlightNodes: ["n-template"],
+  },
+  {
+    title: "Publishing a fork",
+    description:
+      'When a user publishes, the system: <strong>1.</strong> Inserts a new <code>template</code> row with the edited structure and <code>copied_from_template_id</code> pointing to the source. <strong>2.</strong> Updates the project\'s <code>project_template_link.template_id</code> to point to the new row. <strong>3.</strong> Creates a <code>template_revision</code> snapshot. Quest and asset references remain stable because they point to the link, not the template directly. The <code>copied_from_template_id</code> chain provides full provenance.',
+    highlightNodes: ["n-template", "n-pbl", "n-revision"],
+  },
+  {
     title: "Quest versioning via template_node_id",
     description:
-      'Quests gain one new nullable FK: <code>template_node_id</code>. Two quests pointing to the <em>same</em> template node are <strong>versions</strong> of that structural unit. This replaces metadata-matching for version detection and works for any template type — Bible, FIA, dictionary, video timestamps, or custom.' +
+      'Quests gain two new nullable columns: <code>template_link_id</code> (FK to project_template_link) and <code>template_node_id</code> (opaque node ID). Two quests pointing to the same template node are <strong>versions</strong> of that structural unit.' +
       DIA_VERSIONS,
-    highlightNodes: ["n-quest", "n-template"],
+    highlightNodes: ["n-quest", "n-pbl"],
   },
   {
     title: "Asset contributions & verse spanning",
     description:
-      'Assets gain <code>template_node_id</code> (what structural node this is for) and <code>span_end_node_id</code> (range endpoint). A null <code>span_end_node_id</code> = <strong>dedicated</strong> contribution to one node. A set value = <strong>spanning</strong> contribution across a range. Queries can distinguish the two cleanly.' +
+      'Assets gain <code>template_node_id</code> (start node) and <code>span_end_template_node_id</code> (range endpoint). Null span = <strong>dedicated</strong> contribution. Set span = <strong>spanning</strong> across a range.' +
       DIA_SPANNING,
-    highlightNodes: ["n-asset", "n-template"],
+    highlightNodes: ["n-asset", "n-pbl"],
   },
   {
-    title: "quest_asset_link — which version owns which asset",
+    title: "project_template_link — stable identity",
     description:
-      'Unchanged. <code>quest_asset_link</code> ties an asset to a specific quest (version). The asset\'s <code>template_node_id</code> says <em>what</em> structural unit it covers. The <code>quest_asset_link</code> says <em>which version</em> it belongs to. Each concern is separate and queryable independently.',
-    highlightNodes: ["n-qal", "n-quest", "n-asset"],
+      'The link table has its own UUID PK. Quests and assets reference this stable ID via <code>template_link_id</code>. When a template is forked, the link\'s <code>template_id</code> is re-pointed to the new template — quest/asset references remain stable. A project can link to multiple templates simultaneously.',
+    highlightNodes: ["n-pbl", "n-project", "n-template"],
   },
   {
-    title: "Fractional indexing for ordering",
+    title: "Sharing & forking templates",
     description:
-      '<code>order_key</code> uses <strong>fractional indexing</strong> — lexicographic strings that allow inserting between any two siblings with <em>zero</em> updates to existing rows. Perfect for offline-first sync (PowerSync) since only the new row is written.' +
-      `<div class="font-mono text-[.6rem] leading-[1.7] text-txt-muted mt-1.5">
-<span class="text-accent-cyan">Item A</span> order_key = <span class="text-accent-green">"a"</span><br/>
-<span class="text-accent-pink">Item X</span> order_key = <span class="text-accent-green">"aV"</span> <span class="text-txt-dim text-[.5rem]">← inserted, 0 sibling updates</span><br/>
-<span class="text-accent-cyan">Item B</span> order_key = <span class="text-accent-green">"b"</span><br/>
-<span class="text-accent-cyan">Item C</span> order_key = <span class="text-accent-green">"c"</span></div>`,
+      'Forking is the core editing mechanism, not just a sharing convenience. Every edit — whether updating your own template or adapting someone else\'s — produces a fork. Templates with <code>shared = true</code> are visible to all users for forking. <code>copied_from_template_id</code> records provenance. <code>auto_sync = true</code> makes standard templates (Bible, FIA) sync globally via PowerSync.' +
+      `<div class="font-mono text-[.6rem] leading-[1.9] text-txt-muted mt-1.5">
+<b class="text-accent-green">1.</b> Standard <b class="text-accent-pink">"Protestant Bible"</b> template exists <span class="text-txt-dim text-[.5rem]">auto_sync=true, shared=true</span><br/>
+<b class="text-accent-green">2.</b> Ben forks it for his Yoruba project<br/>
+&nbsp;&nbsp;&nbsp;→ new template <b class="text-accent-purple">"Protestant Bible (fork)"</b> <span class="text-txt-dim text-[.5rem]">copied_from_template_id → original</span><br/>
+<b class="text-accent-green">3.</b> Ben edits locally in IndexedDB, then publishes<br/>
+&nbsp;&nbsp;&nbsp;→ another new template row, link re-pointed<br/>
+<b class="text-accent-green">4.</b> Ben sets shared=true, renames to <b class="text-accent-purple">"Yoruba Protestant Bible"</b></div>`,
     highlightNodes: ["n-template"],
   },
   {
-    title: "Completion queries become trivial",
+    title: "template_revision — audit history",
     description:
-      'To check verse completion, query template_node children and left-join assets. No JSON parsing, no tag lookups.' +
-      `<div class="font-mono text-[.55rem] leading-[1.7] text-txt-muted mt-1.5 bg-code-bg rounded-lg px-3 py-2">
-<span class="text-accent-pink">SELECT</span> tn.name,<br/>
-&nbsp;&nbsp;<span class="text-accent-pink">COUNT</span>(a.id) <span class="text-accent-pink">FILTER</span> (<span class="text-accent-pink">WHERE</span> a.span_end_node_id <span class="text-accent-pink">IS NULL</span>) <span class="text-accent-pink">AS</span> dedicated,<br/>
-&nbsp;&nbsp;<span class="text-accent-pink">COUNT</span>(a.id) <span class="text-accent-pink">FILTER</span> (<span class="text-accent-pink">WHERE</span> a.span_end_node_id <span class="text-accent-pink">IS NOT NULL</span>) <span class="text-accent-pink">AS</span> spanning<br/>
-<span class="text-accent-pink">FROM</span> template_node tn<br/>
-<span class="text-accent-pink">LEFT JOIN</span> asset a <span class="text-accent-pink">ON</span> a.template_node_id = tn.id<br/>
-<span class="text-accent-pink">WHERE</span> tn.parent_id = <span class="text-accent-green">'tn-ch1'</span><br/>
-&nbsp;&nbsp;<span class="text-accent-pink">AND</span> tn.node_type = <span class="text-accent-green">'verse'</span><br/>
-<span class="text-accent-pink">GROUP BY</span> tn.id <span class="text-accent-pink">ORDER BY</span> tn.order_key;</div>`,
-    highlightNodes: ["n-template", "n-asset"],
-  },
-  {
-    title: "Sharing & copying templates",
-    description:
-      'The <code>shared</code> flag on a mother node controls whether others can copy the template. When copied, the entire tree is duplicated into the target project with new IDs. The copied mother gets <code>source_copied_id</code> → the original mother (provenance) and <code>shared = false</code> by default. Changes to a copy never affect the original or other copies. The new owner can set <code>shared = true</code> on their copy to share their modified version — it must have a unique <code>name</code>.' +
-      `<div class="font-mono text-[.6rem] leading-[1.9] text-txt-muted mt-1.5">
-<b class="text-accent-green">1.</b> Ana creates <b class="text-accent-pink">"Protestant Bible"</b> <span class="text-txt-dim text-[.5rem]">shared=true</span><br/>
-<b class="text-accent-green">2.</b> Ben copies it for his Yoruba project<br/>
-&nbsp;&nbsp;&nbsp;→ new mother <b class="text-accent-purple">"Protestant Bible"</b> <span class="text-txt-dim text-[.5rem]">shared=false · source_copied_id → Ana's mother</span><br/>
-&nbsp;&nbsp;&nbsp;→ entire tree duplicated with new IDs, project_id = Ben's project<br/>
-<b class="text-accent-green">3.</b> Ben modifies his copy (adds nodes, reorders, renames)<br/>
-&nbsp;&nbsp;&nbsp;→ Ana's original is unaffected<br/>
-<b class="text-accent-green">4.</b> Ben sets <code>shared = true</code>, renames to <b class="text-accent-purple">"Yoruba Protestant Bible"</b><br/>
-&nbsp;&nbsp;&nbsp;→ others can now copy Ben's modified version</div>`,
-    highlightNodes: ["n-template"],
-  },
-  {
-    title: "Multiple templates per project",
-    description:
-      'A project can contain multiple template trees — just multiple mother nodes within the same <code>project_id</code>. Each mother is a separate template. A Yoruba project could host a Bible tree, a dictionary tree, and a story collection simultaneously.' +
-      `<div class="font-mono text-[.6rem] leading-[1.9] text-txt-muted mt-1.5">
-<b class="text-accent-cyan">Project: Yoruba Documentation</b><br/>
-&nbsp;&nbsp;├ <b class="text-accent-pink">📖 Protestant Bible</b> <span class="text-txt-dim text-[.5rem]">mother node · icon="book"</span><br/>
-&nbsp;&nbsp;│&nbsp;&nbsp;├ Luke → Chapter 1 → verses…<br/>
-&nbsp;&nbsp;│&nbsp;&nbsp;└ Luke → Chapter 2 → verses…<br/>
-&nbsp;&nbsp;├ <b class="text-accent-pink">📚 Dictionary</b> <span class="text-txt-dim text-[.5rem]">mother node · icon="library"</span><br/>
-&nbsp;&nbsp;│&nbsp;&nbsp;├ Animals → [Cat, Dog, …]<br/>
-&nbsp;&nbsp;│&nbsp;&nbsp;└ Colors → [Red, Blue, …]<br/>
-&nbsp;&nbsp;└ <b class="text-accent-pink">🎙 Story Collection</b> <span class="text-txt-dim text-[.5rem]">mother node · icon="mic"</span><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ Creation Stories → [Story 1, Story 2, …]</div>`,
-    highlightNodes: ["n-template", "n-project"],
+      'Each published fork creates a <code>template_revision</code> row storing the full JSONB snapshot and optional action log. Since every publish produces a new template row, each revision is tied 1:1 to a specific template. Server-only (not synced to clients via PowerSync). Provides audit trail but no rollback — reverting would orphan linked contributions.',
+    highlightNodes: ["n-revision", "n-template"],
   },
   {
     title: "Backward compatibility",
     description:
-      'All new columns are <strong>nullable</strong>. Existing unstructured projects continue using <code>quest.parent_id</code> for hierarchy and <code>asset.metadata</code> for verse info. Template-aware code checks <code>template_node_id</code> first, falls back to legacy fields. The old <code>project.template</code> enum and <code>quest.metadata</code> remain until all projects migrate to template_node trees.',
+      'All new columns are <strong>nullable</strong>. Existing unstructured projects continue using <code>quest.parent_id</code> for hierarchy. Pre-migration Bible/FIA projects have <code>frozen = true</code> on their <code>project_template_link</code> rows (preventing re-pointing). The old <code>project.template</code> enum and <code>quest.metadata</code> remain until full migration.',
     highlightNodes: ["n-project", "n-quest", "n-asset"],
   },
 ];

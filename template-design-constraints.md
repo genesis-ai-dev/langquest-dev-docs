@@ -1,6 +1,6 @@
 # Template Design — Constraints
 
-Canonical list of constraints guiding the `template_node` design. Updated as the design evolves.
+Canonical list of constraints guiding the **template-only, fork-based** template system design.
 
 ---
 
@@ -8,41 +8,68 @@ Canonical list of constraints guiding the `template_node` design. Updated as the
 
 | # | Constraint | Notes |
 |---|-----------|-------|
-| C1 | **Offline-first row-level sync** | PowerSync + SQLite. Every change syncs as individual rows. Large JSON blobs force full re-sync and are undesirable. |
-| C2 | **No cascading sibling updates** | Inserting/reordering a node must not require updating every sibling. Solved via fractional indexing (`order_key`). |
-| C3 | **FK integrity over embedded references** | Real foreign keys (not JSON-embedded IDs) so the database enforces referential integrity and enables joins. |
+| C1 | **Offline-first row-level sync** | PowerSync + SQLite. A single JSONB template row (20-100KB) re-syncing on infrequent edits is acceptable. The app is read-only on templates. |
+| C2 | **Template-only (no template_node table)** | Template structure stored as JSONB in `template.structure`. Quests and assets reference `template_node_id` (opaque nanoid) and `template_link_id` (UUID FK to `project_template_link`). No materialized template_node records. |
+| C3 | **Fork-based publishing** | Each publish creates a new immutable `template` row. No concurrent editing conflicts. No pessimistic locks. All editing happens locally in browser IndexedDB; the server only stores published snapshots. |
+| C4 | **No CRDT or lock dependency** | Immutable published rows eliminate the need for both CRDTs and pessimistic locking. Editing is website-only, single-writer per browser. |
 
 ## Template Structure
 
 | # | Constraint | Notes |
 |---|-----------|-------|
-| C4 | **Arbitrary hierarchical structure** | Users define their own template trees — Bible, FIA, dictionary, video timestamps, poetry, stories, etc. Not hard-coded. |
-| C5 | **Multiple templates per project** | A single project can host several independent template trees (e.g. Bible + dictionary). Each is a separate mother node under the same `project_id`. |
-| C6 | **Mid-project modification** | Nodes can be added, removed, reordered, or renamed after work has begun. Soft-delete (`active`) preserves existing contributions when nodes are removed. |
-| C7 | **Template sharing & copying** | `shared` flag allows others to copy a template. Copies are independent (changes don't propagate). `source_copied_id` tracks provenance. |
-| C8 | **Efficient ordering** | Sibling order maintained via lexicographic `order_key` (fractional indexing). Insert/reorder = 1 row write, 0 sibling updates. |
-| C9 | **Download boundary** | Certain nodes serve as the download unit (the level at which content is bundled for offline use). Currently chapter for Bible, pericope for FIA. Expressed via `is_download_unit` flag — flexible per-node, copies with the template. |
+| C5 | **Arbitrary hierarchical structure** | Users define their own template trees — Bible, FIA, dictionary, video timestamps, poetry, stories, etc. Not hard-coded in app logic. |
+| C6 | **Multiple templates per project** | A single project can host several independent template trees. Each is a separate `project_template_link` row linking to a `template`. |
+| C7 | **Mid-project modification** | Template structure can be added to, removed from, reordered, or renamed after work has begun. In update mode (re-pointing existing projects), removed nodes are soft-deleted (`deleted: true`) to preserve linked contributions. In starting-point mode (fresh copy), removed nodes are hard-deleted from the JSONB. |
+| C8 | **Template sharing via templates** | Templates are shared as `template` rows. Projects reference templates via `project_template_link`. Forking = duplicating one row. |
+| C9 | **Max depth = 5** | Template hierarchy limited to 5 levels deep (root + 4 levels). Validated by RPCs on publish. |
+| C10 | **Opaque node IDs** | Node IDs are `nanoid(10)`, opaque and immutable once created. No `external_id` field. Backfill and cron jobs use tree-walking and `metadata` for semantic matching. |
+
+## Ownership & Scope
+
+| # | Constraint | Notes |
+|---|-----------|-------|
+| C11 | **Selective modification scope** | An editor can only apply template changes to projects *they own*, regardless of template ownership. Implemented via RPCs that fork a template and re-point `project_template_link` records. |
+| C12 | **No record accumulation** | Avoid O(projects x template_size) row counts. Template structure is shared JSONB, not per-project materialized rows. |
+| C13 | **Ownership-gated control** | Template modification permissions derive from project ownership (dynamic, can be granted/revoked). Not baked into the template. |
+| C14 | **Frozen project links** | Pre-migration Bible/FIA project links have `frozen = true` on `project_template_link`, preventing re-pointing. The templates themselves remain forkable. |
 
 ## Versioning & Contributions
 
 | # | Constraint | Notes |
 |---|-----------|-------|
-| C10 | **Quest versioning** | Multiple quests pointing to the same `template_node_id` = versions of that structural unit. Replaces metadata-matching. |
-| C11 | **No verse splitting** | Users cannot split a verse into sub-parts (e.g. 1:1a, 1:1b). This was rejected for complexity reasons. |
-| C12 | **Verse spanning (combining)** | A single asset can cover a contiguous range of template nodes via `template_node_id` (start) + `span_end_node_id` (end). |
-| C13 | **Remixing (future)** | Create a new quest version from the best contributions across existing versions. Each remixed version can pull individual assets and define its own spans. |
+| C15 | **Quest versioning** | Multiple quests pointing to the same `template_node_id` = versions of that structural unit. |
+| C16 | **No verse splitting** | Users cannot split a verse into sub-parts (e.g. 1:1a, 1:1b). |
+| C17 | **Verse spanning** | A single asset can cover a contiguous range of template nodes via `template_node_id` (start) + `span_end_template_node_id` (end). |
+| C18 | **No rollback** | Reverting to a previous template version is not supported (would orphan linked contributions). `template_revision` provides audit history only. |
 
-## Querying & Data Integrity
+## Drafts & Publishing
 
 | # | Constraint | Notes |
 |---|-----------|-------|
-| C14 | **Efficient completion queries** | "Which slots have contributions?" must be answerable with a simple join on `template_node_id` — no JSON parsing or tag lookups. |
-| C15 | **Distinguish dedicated vs. spanning** | Queries for a specific node must clearly separate assets dedicated to that single node (`span_end_node_id IS NULL`) from assets that span a range including it. |
-| C16 | **Efficient tree queries** | `root_id` on every node avoids recursive traversal. "All nodes in template X" = `WHERE root_id = ?`. |
+| C19 | **Browser-side drafts** | Editor drafts and undo/redo history stored in browser IndexedDB. Drafts include editing mode (`starting_point` \| `update`), metadata, and target project link selection. No server-side draft state. |
+| C20 | **Immutable published rows** | Published `template` rows are never modified structurally. The fork model (each publish = new row) replaces `structure_version` concurrency control. |
+| C21 | **Publish = insert a new immutable row** | Publishing always creates a new `template` row. In update mode, selected `project_template_link` rows are re-pointed to the new row. Provenance tracked via `copied_from_template_id`. |
+
+## Labeling & Navigation
+
+| # | Constraint | Notes |
+|---|-----------|-------|
+| C22 | **Generalized labeling** | `short_label` and `label_template` fields on `TemplateNode` drive all UI labels. No hardcoded Bible/FIA labeling logic. |
+| C23 | **Offline browsing from JSONB** | Users browse full template structure offline by reading `template.structure` directly. No server call required for navigation. |
+| C24 | **No special app logic for Bible/FIA** | All UI driven generically by template structure fields (`node_type`, `linkable_type`, `is_download_unit`, `is_version_anchor`, `allows_spanning`). |
+
+## Per-Language & Automation
+
+| # | Constraint | Notes |
+|---|-----------|-------|
+| C25 | **Per-languoid templates** | Templates have a `source_languoid_id`. Standard templates (Bible, FIA) exist as separate templates for each languoid. |
+| C26 | **auto_sync flag** | Controls global vs. on-demand synchronization. Dev-only, not user-editable. `auto_sync = true` templates appear in global sync bucket. |
+| C27 | **FIA cron refresh** | `pg_cron` + Supabase Edge Function refreshes FIA pericopes daily, applying additive changes to source templates. |
 
 ## Migration & Compatibility
 
 | # | Constraint | Notes |
 |---|-----------|-------|
-| C17 | **Minimal migration** | All new columns are nullable. Existing tables are reused (not renamed or replaced). Legacy fields (`quest.metadata`, `project.template` enum) remain until full migration. |
-| C18 | **Backward compatibility** | Unstructured projects keep working via `quest.parent_id` hierarchy. Template-aware code checks `template_node_id` first, falls back to legacy fields. |
+| C28 | **Minimal migration** | All new columns are nullable. Existing tables reused. Legacy fields (`quest.metadata`, `project.template` enum) remain until full migration. |
+| C29 | **Backward compatibility** | Unstructured projects keep working via `quest.parent_id` hierarchy. Template-aware code checks `template_node_id` first, falls back to legacy fields. |
+| C30 | **No unstructured projects** | All new projects must pick a template. Legacy unstructured projects are grandfathered but not creatable going forward. |
