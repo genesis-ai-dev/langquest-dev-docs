@@ -6,8 +6,9 @@ import { CicdPipeline } from "./pages/CicdPipeline";
 import { DataSyncFlow } from "./pages/DataSyncFlow";
 import { AuthFlow } from "./pages/AuthFlow";
 import { TemplateDesign } from "./pages/TemplateDesign";
+import { WorkflowBuilder } from "./pages/WorkflowBuilder";
 
-type Page = "schema" | "migration" | "cicd" | "sync" | "auth" | "template";
+type Page = "schema" | "migration" | "cicd" | "sync" | "auth" | "template" | "workflow";
 
 function getPage(): Page {
   const h = window.location.hash;
@@ -16,6 +17,7 @@ function getPage(): Page {
   if (h === "#sync") return "sync";
   if (h === "#auth") return "auth";
   if (h === "#template") return "template";
+  if (h === "#workflow") return "workflow";
   return "schema";
 }
 
@@ -40,6 +42,8 @@ export default function App() {
         <AuthFlow />
       ) : page === "template" ? (
         <TemplateDesign />
+      ) : page === "workflow" ? (
+        <WorkflowBuilder />
       ) : (
         <DatabaseSchema />
       )}
