@@ -15,6 +15,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { useTheme } from "../components/ThemeProvider";
 import { cn } from "../cn";
+import { WorkflowSimulation } from "./WorkflowSimulation";
 
 // --- Types ---
 
@@ -487,6 +488,7 @@ export function WorkflowBuilder() {
   });
 
   const [newProfileName, setNewProfileName] = useState("");
+  const [mode, setMode] = useState<"design" | "simulate">("design");
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
@@ -689,14 +691,28 @@ export function WorkflowBuilder() {
         subtitle="LangQuest · Review Process Template"
         actions={
           <>
-            <HeaderButton onClick={addPhase}>+ Phase</HeaderButton>
-            <HeaderButton onClick={exportJson}>↓ Export JSON</HeaderButton>
+            <HeaderButton onClick={() => setMode("design")} active={mode === "design"}>
+              Design
+            </HeaderButton>
+            <HeaderButton onClick={() => setMode("simulate")} active={mode === "simulate"}>
+              Simulate
+            </HeaderButton>
+            {mode === "design" && (
+              <>
+                <div className="w-px h-5 bg-border mx-0.5" />
+                <HeaderButton onClick={addPhase}>+ Phase</HeaderButton>
+                <HeaderButton onClick={exportJson}>↓ Export JSON</HeaderButton>
+              </>
+            )}
           </>
         }
         currentHash="#workflow"
       />
 
-      <div className="flex-1 flex min-h-0">
+      {mode === "simulate" ? (
+        <WorkflowSimulation state={state} />
+      ) : (
+        <div className="flex-1 flex min-h-0">
         {/* Sidebar - Profiles */}
         <div className="w-56 border-r border-border bg-card/50 flex flex-col shrink-0 overflow-hidden">
           <div className="px-3 py-3 border-b border-border">
@@ -799,7 +815,8 @@ export function WorkflowBuilder() {
             panOnScroll
           />
         </div>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

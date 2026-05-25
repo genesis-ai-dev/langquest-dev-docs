@@ -12,8 +12,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Sync", hash: "#sync" },
   { label: "CI/CD", hash: "#cicd" },
   { label: "Auth", hash: "#auth" },
-  { label: "Content Templates", hash: "#template" },
-  { label: "Process Templates", hash: "#workflow" },
+  { label: "Content Templates (beta)", hash: "#template" },
+  { label: "Process Templates (beta)", hash: "#workflow" },
 ];
 
 export function Header({
