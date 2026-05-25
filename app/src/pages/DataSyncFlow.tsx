@@ -47,19 +47,6 @@ export function DataSyncFlow() {
         subtitle="LangQuest · Supabase + PowerSync"
         actions={
           <>
-            <HeaderButton onClick={() => (window.location.hash = "")}>
-              Schema
-            </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#migration")}>
-              Migration
-            </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#cicd")}>
-              CI/CD
-            </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#auth")}>
-              Auth
-            </HeaderButton>
-            <div className="w-px h-5 bg-border mx-0.5" />
             {SCENARIOS.map((sc) => (
               <HeaderButton
                 key={sc.id}
@@ -90,6 +77,7 @@ export function DataSyncFlow() {
             </button>
           </>
         }
+        currentHash="#sync"
       />
 
       <DataSyncDiagram step={currentSyncStep} isOnline={isOnline} />

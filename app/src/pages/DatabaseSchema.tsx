@@ -37,25 +37,9 @@ export function DatabaseSchema() {
         title="Database Schema"
         subtitle="LangQuest · Postgres / Supabase"
         actions={
-          <>
-            <HeaderButton onClick={() => (window.location.hash = "#migration")}>
-              Migration
-            </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#sync")}>
-              Sync
-            </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#cicd")}>
-              CI/CD
-            </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#auth")}>
-              Auth
-            </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#template")}>
-              Template
-            </HeaderButton>
-            <HeaderButton onClick={resetLayout}>⟲ Reset</HeaderButton>
-          </>
+          <HeaderButton onClick={resetLayout}>⟲ Reset</HeaderButton>
         }
+        currentHash=""
       />
 
       <TabBar
