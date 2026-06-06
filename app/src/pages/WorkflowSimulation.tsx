@@ -14,6 +14,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { useTheme } from "../components/ThemeProvider";
 import { cn } from "../cn";
+import { TranslatorSteps, type Step } from "./TranslatorSteps";
 
 // --- Shared types (re-exported from WorkflowBuilder) ---
 
@@ -532,14 +533,262 @@ const EVENT_ICONS: Record<AuditEvent["type"], string> = {
   complete: "★",
 };
 
+// --- Assign Stage ---
+
+function AssignStage({
+  profiles,
+  selectedOwner,
+  setSelectedOwner,
+  selectedTranslator,
+  setSelectedTranslator,
+  assignedPassage,
+  setAssignedPassage,
+  onProceed,
+}: {
+  profiles: { id: string; name: string; color: string }[];
+  selectedOwner: string;
+  setSelectedOwner: (v: string) => void;
+  selectedTranslator: string;
+  setSelectedTranslator: (v: string) => void;
+  assignedPassage: string;
+  setAssignedPassage: (v: string) => void;
+  onProceed: () => void;
+}) {
+  const ownerProfile = profiles.find((p) => p.id === selectedOwner);
+  const canProceed = !!selectedOwner && !!selectedTranslator && !!assignedPassage.trim();
+
+  return (
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-96 space-y-5 p-6 rounded-xl border border-border bg-card/50">
+        <div className="text-center">
+          <div className="font-mono text-lg mb-1">📋</div>
+          <h3 className="font-mono text-sm font-semibold text-txt">Assign Passage</h3>
+          <p className="font-mono text-[.65rem] text-txt-dim mt-1">
+            The project owner assigns a pericope/passage to a translator
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="font-mono text-[.6rem] text-txt-dim uppercase tracking-wider block mb-1">
+              Owner (assigning)
+            </label>
+            <select
+              value={selectedOwner}
+              onChange={(e) => setSelectedOwner(e.target.value)}
+              className="w-full font-mono text-[.7rem] px-3 py-2 rounded-md border border-border bg-bg text-txt outline-none focus:border-accent-purple"
+            >
+              <option value="">Select owner...</option>
+              {profiles.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="font-mono text-[.6rem] text-txt-dim uppercase tracking-wider block mb-1">
+              Translator (assigned to)
+            </label>
+            <select
+              value={selectedTranslator}
+              onChange={(e) => setSelectedTranslator(e.target.value)}
+              className="w-full font-mono text-[.7rem] px-3 py-2 rounded-md border border-border bg-bg text-txt outline-none focus:border-accent-purple"
+            >
+              <option value="">Select translator...</option>
+              {profiles.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="font-mono text-[.6rem] text-txt-dim uppercase tracking-wider block mb-1">
+              Passage / Pericope
+            </label>
+            <input
+              value={assignedPassage}
+              onChange={(e) => setAssignedPassage(e.target.value)}
+              placeholder="e.g., Luke 15:11-32 (Prodigal Son)"
+              className="w-full font-mono text-[.7rem] px-3 py-2 rounded-md border border-border bg-bg text-txt placeholder:text-txt-dim outline-none focus:border-accent-purple"
+            />
+          </div>
+        </div>
+
+        {ownerProfile && selectedTranslator && assignedPassage && (
+          <div className="px-3 py-2 rounded-md border border-accent-cyan/30 bg-accent-cyan/5">
+            <span className="font-mono text-[.6rem] text-txt-dim">
+              <span className="text-txt font-medium">{ownerProfile.name}</span> (owner) assigns{" "}
+              <span className="text-accent-cyan italic">"{assignedPassage}"</span> to{" "}
+              <span className="text-txt font-medium">{profiles.find((p) => p.id === selectedTranslator)?.name}</span> (translator)
+            </span>
+          </div>
+        )}
+
+        <button
+          onClick={onProceed}
+          disabled={!canProceed}
+          className={cn(
+            "w-full font-mono text-[.7rem] px-3 py-2.5 rounded-md border cursor-pointer transition-all",
+            canProceed
+              ? "border-accent-green text-accent-green hover:bg-accent-green/10"
+              : "border-border text-txt-dim opacity-50 cursor-not-allowed"
+          )}
+        >
+          Assign & Begin →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// --- Record Stage ---
+
+function RecordStage({
+  translatorProfile,
+  recordingDone,
+  setRecordingDone,
+  onSubmit,
+  canSubmit,
+  versionNumber,
+  isRevision,
+}: {
+  translatorProfile?: { id: string; name: string; color: string };
+  recordingDone: boolean;
+  setRecordingDone: (v: boolean) => void;
+  onSubmit: () => void;
+  canSubmit: boolean;
+  versionNumber: number;
+  isRevision?: boolean;
+}) {
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordProgress, setRecordProgress] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const handleStartRecording = () => {
+    setIsRecording(true);
+    setRecordProgress(0);
+    intervalRef.current = setInterval(() => {
+      setRecordProgress((p) => {
+        if (p >= 100) {
+          setIsRecording(false);
+          setRecordingDone(true);
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          return 100;
+        }
+        return p + 1;
+      });
+    }, 100);
+  };
+
+  const handleStopRecording = () => {
+    setIsRecording(false);
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    if (recordProgress > 20) {
+      setRecordingDone(true);
+    }
+    setRecordProgress(0);
+  };
+
+  return (
+    <div className="flex-1 flex items-center justify-center">
+      <div className="w-96 space-y-5 p-6 rounded-xl border border-border bg-card/50">
+        <div className="text-center">
+          <div className="font-mono text-lg mb-1">🎙</div>
+          <h3 className="font-mono text-sm font-semibold text-txt">Record Translation</h3>
+          {translatorProfile && (
+            <p className="font-mono text-[.65rem] text-txt-dim mt-1">
+              <span className="text-txt font-medium">{translatorProfile.name}</span> (translator) records their final translation
+            </p>
+          )}
+        </div>
+
+        {isRevision && (
+          <div className="px-3 py-2 rounded-md border border-accent-amber/30 bg-accent-amber/5">
+            <span className="font-mono text-[.6rem] text-accent-amber">
+              Previous version was rejected. Re-record and submit <span className="font-medium">v{versionNumber}</span> to restart review from the first phase.
+            </span>
+          </div>
+        )}
+
+        {/* Recording UI */}
+        <div className="space-y-3">
+          {!isRecording && !recordingDone && (
+            <button
+              onClick={handleStartRecording}
+              className="w-full font-mono text-[.7rem] px-3 py-3 rounded-md border border-accent-red text-accent-red hover:bg-accent-red/10 cursor-pointer bg-transparent transition-all"
+            >
+              ● Start Recording
+            </button>
+          )}
+
+          {isRecording && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-3 h-3 rounded-full bg-accent-red animate-pulse" />
+                <span className="font-mono text-[.7rem] text-accent-red">Recording... {Math.floor(recordProgress / 10)}s</span>
+              </div>
+              <div className="h-2 bg-border rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-accent-red rounded-full transition-all duration-100"
+                  style={{ width: `${recordProgress}%` }}
+                />
+              </div>
+              <button
+                onClick={handleStopRecording}
+                className="w-full font-mono text-[.7rem] px-3 py-2.5 rounded-md border border-accent-red bg-accent-red/10 text-accent-red cursor-pointer transition-all"
+              >
+                ■ Stop Recording
+              </button>
+            </div>
+          )}
+
+          {recordingDone && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-md border border-accent-green/30 bg-accent-green/5">
+                <span className="text-accent-green">✓</span>
+                <span className="font-mono text-[.65rem] text-accent-green">Recording complete</span>
+                <button
+                  onClick={() => { setRecordingDone(false); setRecordProgress(0); }}
+                  className="ml-auto font-mono text-[.55rem] text-txt-dim hover:text-accent-amber cursor-pointer bg-transparent border-none"
+                >
+                  Re-record
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Submit */}
+        <button
+          onClick={onSubmit}
+          disabled={!canSubmit}
+          className={cn(
+            "w-full font-mono text-[.7rem] px-3 py-2.5 rounded-md border cursor-pointer transition-all",
+            canSubmit
+              ? "border-accent-cyan text-accent-cyan hover:bg-accent-cyan/10"
+              : "border-border text-txt-dim opacity-50 cursor-not-allowed"
+          )}
+        >
+          Submit v{versionNumber} for Review →
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // --- Main Component ---
 
-export function WorkflowSimulation({ state: workflowState }: { state: WorkflowState }) {
+export function WorkflowSimulation({ state: workflowState, steps: configuredSteps }: { state: WorkflowState; steps: Step[] }) {
   const { theme } = useTheme();
   const [sim, dispatch] = useReducer(simReducer, INITIAL_STATE);
+  const [selectedOwner, setSelectedOwner] = useState<string>("");
   const [selectedTranslator, setSelectedTranslator] = useState<string>("");
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null);
+  const [simStage, setSimStage] = useState<"assign" | "working" | "record" | "review">("assign");
+  const [steps, setSteps] = useState<Step[]>(() => configuredSteps.map((s) => ({ ...s, done: false, contributions: [] })));
+  const [assignedPassage, setAssignedPassage] = useState("");
+  const [recordingDone, setRecordingDone] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
@@ -623,6 +872,10 @@ export function WorkflowSimulation({ state: workflowState }: { state: WorkflowSt
   const handleSubmit = useCallback(() => {
     if (!selectedTranslator) return;
     dispatch({ type: "SUBMIT_VERSION", profileId: selectedTranslator, phases: workflowState.phases });
+    // Keep the translator's completed steps so a rejected version can be quickly
+    // re-recorded and resubmitted. Only the recording is cleared for the new take.
+    setRecordingDone(false);
+    setSimStage("review");
   }, [selectedTranslator, workflowState.phases]);
 
   const handleStamp = useCallback((profileId: string, phaseId: string, slotId: string, stampType: "approve" | "reject") => {
@@ -641,44 +894,124 @@ export function WorkflowSimulation({ state: workflowState }: { state: WorkflowSt
     setCommentInputs((prev) => ({ ...prev, [key]: "" }));
   }, [commentInputs]);
 
-  const canSubmit = sim.status === "idle" || sim.status === "rejected";
+  // Clears every piece of simulation state back to the start of the flow.
+  const handleFullReset = useCallback(() => {
+    dispatch({ type: "RESET" });
+    setSimStage("assign");
+    setSelectedOwner("");
+    setSelectedTranslator("");
+    setCommentInputs({});
+    setSelectedPhaseId(null);
+    setSteps(configuredSteps.map((s) => ({ ...s, done: false, contributions: [] })));
+    setAssignedPassage("");
+    setRecordingDone(false);
+  }, [configuredSteps]);
+
+  const stepsComplete = steps.every((s) => s.done);
+  // Recording is optional — don't block submission on a finished recording.
+  const canSubmit = (sim.status === "idle" || sim.status === "rejected") && stepsComplete;
   const getProfileById = (id: string) => workflowState.profiles.find((p) => p.id === id);
 
+  const ownerProfile = workflowState.profiles.find((p) => p.id === selectedOwner);
+  const translatorProfile = workflowState.profiles.find((p) => p.id === selectedTranslator);
+
+  const STAGES = [
+    { id: "assign" as const, label: "Assign", icon: "📋", actor: ownerProfile ? `${ownerProfile.name} (owner)` : "Owner" },
+    { id: "working" as const, label: "Working", icon: "📖", actor: translatorProfile ? `${translatorProfile.name} (translator)` : "Translator" },
+    { id: "record" as const, label: "Record", icon: "🎙", actor: translatorProfile ? `${translatorProfile.name} (translator)` : "Translator" },
+    { id: "review" as const, label: "Review", icon: "🔍", actor: "Reviewers" },
+  ];
+
   return (
-    <div className="flex-1 flex min-h-0">
-      {/* Left Panel: Translator Controls */}
-      <div className="w-60 border-r border-border bg-card/50 flex flex-col shrink-0 overflow-hidden">
-        <div className="px-3 py-3 border-b border-border">
-          <div className="font-mono text-[.7rem] text-txt-dim uppercase tracking-wider mb-2">
-            Translator
+    <div className="flex-1 flex flex-col min-h-0">
+      {/* Top: Stage Pipeline */}
+      <div className="flex items-center gap-1 px-4 py-2 border-b border-border bg-card/50 shrink-0">
+        {STAGES.map((stage, i) => (
+          <div key={stage.id} className="flex items-center gap-1">
+            {i > 0 && <span className="text-txt-dim text-[.6rem] mx-0.5">→</span>}
+            <button
+              onClick={() => setSimStage(stage.id)}
+              className={cn(
+                "font-mono text-[.65rem] px-2.5 py-1.5 rounded-md cursor-pointer bg-transparent border transition-all",
+                simStage === stage.id
+                  ? "border-accent-purple text-accent-purple bg-accent-purple/5"
+                  : "border-border text-txt-dim hover:text-txt hover:border-txt-dim"
+              )}
+            >
+              {stage.icon} {stage.label}
+            </button>
           </div>
-          <select
-            value={selectedTranslator}
-            onChange={(e) => setSelectedTranslator(e.target.value)}
-            className="w-full font-mono text-[.7rem] px-2 py-2 rounded-md border border-border bg-bg text-txt outline-none focus:border-accent-purple mb-2"
-          >
-            <option value="">Select translator...</option>
-            {workflowState.profiles.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-          <button
-            onClick={handleSubmit}
-            disabled={!canSubmit || !selectedTranslator}
-            className={cn(
-              "w-full font-mono text-[.7rem] px-3 py-2 rounded-md border cursor-pointer transition-all",
-              canSubmit && selectedTranslator
-                ? "border-accent-cyan text-accent-cyan hover:bg-accent-cyan/10"
-                : "border-border text-txt-dim opacity-50 cursor-not-allowed"
-            )}
-          >
-            Submit {sim.versions.length > 0 ? `v${sim.versions.length + 1}` : "v1"}
-          </button>
-          {sim.status === "in_review" && (
-            <div className="font-mono text-[.6rem] text-txt-dim mt-2 italic">
-              A version is currently in review.
+        ))}
+        <div className="flex-1" />
+        <span className="font-mono text-[.6rem] text-txt-muted italic">
+          {STAGES.find((s) => s.id === simStage)?.actor}
+        </span>
+        <button
+          onClick={handleFullReset}
+          className="ml-3 font-mono text-[.6rem] px-2.5 py-1.5 rounded-md border border-border text-txt-dim hover:text-accent-red hover:border-accent-red/50 cursor-pointer bg-transparent transition-all"
+        >
+          ⟲ Reset
+        </button>
+      </div>
+
+      {/* Stage content */}
+      {simStage === "assign" ? (
+        <AssignStage
+          profiles={workflowState.profiles}
+          selectedOwner={selectedOwner}
+          setSelectedOwner={setSelectedOwner}
+          selectedTranslator={selectedTranslator}
+          setSelectedTranslator={setSelectedTranslator}
+          assignedPassage={assignedPassage}
+          setAssignedPassage={setAssignedPassage}
+          onProceed={() => setSimStage("working")}
+        />
+      ) : simStage === "working" ? (
+        <div className="flex-1 flex flex-col min-h-0">
+          {selectedTranslator && translatorProfile && (
+            <div className="px-4 py-1.5 border-b border-border bg-card/30 shrink-0">
+              <span className="font-mono text-[.6rem] text-txt-dim">
+                Working as: <span className="text-txt font-medium">{translatorProfile.name}</span> (translator)
+                {assignedPassage && <> · Passage: <span className="text-accent-cyan italic">"{assignedPassage}"</span></>}
+              </span>
             </div>
           )}
+          <TranslatorSteps steps={steps} onStepsChange={setSteps} readonly />
+          {stepsComplete && (
+            <div className="px-4 py-2 border-t border-border bg-accent-green/5 shrink-0 flex items-center justify-between">
+              <span className="font-mono text-[.65rem] text-accent-green">All steps complete!</span>
+              <button
+                onClick={() => setSimStage("record")}
+                className="font-mono text-[.65rem] px-3 py-1.5 rounded-md border border-accent-green text-accent-green hover:bg-accent-green/10 cursor-pointer bg-transparent transition-all"
+              >
+                Proceed to Record →
+              </button>
+            </div>
+          )}
+        </div>
+      ) : simStage === "record" ? (
+        <RecordStage
+          translatorProfile={translatorProfile}
+          recordingDone={recordingDone}
+          setRecordingDone={setRecordingDone}
+          onSubmit={handleSubmit}
+          canSubmit={canSubmit && !!selectedTranslator}
+          versionNumber={sim.versions.length + 1}
+          isRevision={sim.status === "rejected"}
+        />
+      ) : (
+    <div className="flex-1 flex min-h-0">
+      {/* Left Panel: Version History */}
+      <div className="w-56 border-r border-border bg-card/50 flex flex-col shrink-0 overflow-hidden">
+        <div className="px-3 py-2 border-b border-border">
+          <div className="font-mono text-[.65rem] text-txt-dim uppercase tracking-wider">
+            Status: <span className={cn(
+              "font-medium",
+              sim.status === "in_review" ? "text-blue-400" :
+              sim.status === "approved" ? "text-accent-green" :
+              sim.status === "rejected" ? "text-accent-red" : "text-txt-dim"
+            )}>{sim.status}</span>
+          </div>
         </div>
 
         {/* Version History */}
@@ -743,7 +1076,7 @@ export function WorkflowSimulation({ state: workflowState }: { state: WorkflowSt
             Status: {sim.status === "in_review" ? "In Review" : sim.status.charAt(0).toUpperCase() + sim.status.slice(1)}
           </div>
           <button
-            onClick={() => dispatch({ type: "RESET" })}
+            onClick={handleFullReset}
             className="w-full font-mono text-[.55rem] px-3 py-1.5 rounded-md border border-border text-txt-dim hover:text-accent-red hover:border-accent-red/50 cursor-pointer bg-transparent transition-all"
           >
             ⟲ Reset Simulation
@@ -821,12 +1154,20 @@ export function WorkflowSimulation({ state: workflowState }: { state: WorkflowSt
         {/* Reviewer Actions */}
         <div className="flex-1 overflow-y-auto border-b border-border">
           {!displayPhase && sim.status !== "in_review" && (
-            <div className="px-3 py-6 text-center">
+            <div className="px-3 py-6 text-center space-y-3">
               <div className="font-mono text-[.65rem] text-txt-dim italic">
                 {sim.status === "idle" && "Submit a version to begin review"}
                 {sim.status === "approved" && "All phases complete! Select a phase to review stamps."}
-                {sim.status === "rejected" && "Returned to translator. Submit a new version."}
+                {sim.status === "rejected" && "This version was returned to the translator. Revise and resubmit to restart review from the first phase."}
               </div>
+              {sim.status === "rejected" && (
+                <button
+                  onClick={() => setSimStage("record")}
+                  className="font-mono text-[.65rem] px-3 py-1.5 rounded-md border border-accent-cyan text-accent-cyan hover:bg-accent-cyan/10 cursor-pointer bg-transparent transition-all"
+                >
+                  ↩ Revise &amp; Re-record (v{sim.versions.length + 1})
+                </button>
+              )}
             </div>
           )}
 
@@ -950,6 +1291,8 @@ export function WorkflowSimulation({ state: workflowState }: { state: WorkflowSt
           </div>
         </div>
       </div>
+    </div>
+      )}
     </div>
   );
 }
