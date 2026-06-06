@@ -16,6 +16,7 @@ import "@xyflow/react/dist/style.css";
 import { useTheme } from "../components/ThemeProvider";
 import { cn } from "../cn";
 import { WorkflowSimulation } from "./WorkflowSimulation";
+import { getDefaultSteps, type Step } from "./TranslatorSteps";
 
 // --- Types ---
 
@@ -462,6 +463,142 @@ function buildFlowGraph(
   return { nodes, edges };
 }
 
+// --- Step Design Panel (for Design mode sidebar) ---
+
+function StepDesignPanel({ steps, onStepsChange }: { steps: Step[]; onStepsChange: (s: Step[]) => void }) {
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editingDescId, setEditingDescId] = useState<string | null>(null);
+  const [editDesc, setEditDesc] = useState("");
+
+  const handleDrop = (idx: number) => {
+    if (dragIdx === null || dragIdx === idx) { setDragIdx(null); setDragOverIdx(null); return; }
+    const reordered = [...steps];
+    const [moved] = reordered.splice(dragIdx, 1);
+    reordered.splice(idx, 0, moved);
+    onStepsChange(reordered);
+    setDragIdx(null);
+    setDragOverIdx(null);
+  };
+
+  const handleRename = (id: string) => {
+    if (!editName.trim()) { setEditingId(null); return; }
+    onStepsChange(steps.map((s) => s.id === id ? { ...s, name: editName.trim() } : s));
+    setEditingId(null);
+  };
+
+  const handleSaveDesc = (id: string) => {
+    onStepsChange(steps.map((s) => s.id === id ? { ...s, description: editDesc.trim() || s.description } : s));
+    setEditingDescId(null);
+  };
+
+  return (
+    <div className="flex flex-col flex-1 overflow-hidden">
+      <div className="px-3 py-2 border-b border-border">
+        <div className="font-mono text-[.6rem] text-txt-dim uppercase tracking-wider">
+          Understanding Steps
+        </div>
+        <div className="font-mono text-[.45rem] text-txt-dim mt-1">
+          Translators complete these before submitting. Drag to reorder.
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto py-1">
+        {steps.map((step, i) => (
+          <div
+            key={step.id}
+            draggable
+            onDragStart={() => setDragIdx(i)}
+            onDragOver={(e) => { e.preventDefault(); setDragOverIdx(i); }}
+            onDrop={() => handleDrop(i)}
+            onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
+            className={cn(
+              "group px-3 py-2 border-b border-border/30 transition-all",
+              dragIdx === i && "opacity-40",
+              dragOverIdx === i && dragIdx !== i && "border-t-2 border-t-accent-cyan"
+            )}
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="text-[.5rem] text-txt-dim cursor-grab opacity-50 group-hover:opacity-100">⠿</span>
+              <span className="font-mono text-[.55rem] text-txt-dim w-3">{i + 1}.</span>
+              {editingId === step.id ? (
+                <input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onBlur={() => handleRename(step.id)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleRename(step.id); if (e.key === "Escape") setEditingId(null); }}
+                  className="flex-1 font-mono text-[.6rem] px-1 py-0.5 rounded border border-accent-purple bg-bg text-txt outline-none"
+                  autoFocus
+                />
+              ) : (
+                <span
+                  className="font-mono text-[.6rem] text-txt flex-1 truncate cursor-pointer hover:text-accent-purple"
+                  onClick={() => { setEditingId(step.id); setEditName(step.name); }}
+                >
+                  {step.name}
+                </span>
+              )}
+              <button
+                onClick={() => onStepsChange(steps.filter((s) => s.id !== step.id))}
+                className="text-[.55rem] text-txt-dim hover:text-accent-red opacity-0 group-hover:opacity-100 cursor-pointer bg-transparent border-none transition-all"
+              >
+                ×
+              </button>
+            </div>
+            {editingDescId === step.id ? (
+              <div className="mt-1.5 ml-5">
+                <textarea
+                  value={editDesc}
+                  onChange={(e) => setEditDesc(e.target.value)}
+                  rows={3}
+                  className="w-full font-mono text-[.5rem] px-2 py-1 rounded border border-accent-cyan bg-bg text-txt outline-none resize-y"
+                />
+                <div className="flex gap-1 mt-1">
+                  <button onClick={() => handleSaveDesc(step.id)} className="font-mono text-[.45rem] px-2 py-0.5 rounded border border-accent-green text-accent-green cursor-pointer bg-transparent">Save</button>
+                  <button onClick={() => setEditingDescId(null)} className="font-mono text-[.45rem] px-2 py-0.5 rounded border border-border text-txt-dim cursor-pointer bg-transparent">Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div
+                className="mt-1 ml-5 font-mono text-[.45rem] text-txt-dim truncate cursor-pointer hover:text-txt"
+                onClick={() => { setEditingDescId(step.id); setEditDesc(step.description); }}
+              >
+                {step.description.slice(0, 60)}...
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="px-3 py-2 border-t border-border space-y-1.5">
+        <button
+          onClick={() => {
+            const newStep: Step = {
+              id: `step-custom-${Date.now()}`,
+              name: `Custom Step ${steps.length + 1}`,
+              description: "Describe what the translator should do in this step.",
+              done: false,
+              contributions: [],
+            };
+            onStepsChange([...steps, newStep]);
+          }}
+          className="w-full font-mono text-[.55rem] px-3 py-1.5 rounded-md border border-dashed border-border text-txt-dim hover:border-accent-cyan hover:text-accent-cyan cursor-pointer bg-transparent transition-all"
+        >
+          + Add Step
+        </button>
+        <button
+          onClick={() => onStepsChange(getDefaultSteps())}
+          className="w-full font-mono text-[.5rem] px-3 py-1 rounded-md text-txt-dim hover:text-accent-amber cursor-pointer bg-transparent border-none transition-all"
+        >
+          ↺ Restore Defaults
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // --- Main Page ---
 
 export function WorkflowBuilder() {
@@ -484,11 +621,22 @@ export function WorkflowBuilder() {
       { id: uid(), name: "Maria", color: PROFILE_COLORS[2] },
       { id: uid(), name: "Pastor David", color: PROFILE_COLORS[3] },
       { id: uid(), name: "Elder Ruth", color: PROFILE_COLORS[4] },
+      { id: uid(), name: "Nathan", color: PROFILE_COLORS[5] },
+      { id: uid(), name: "Esther", color: PROFILE_COLORS[6] },
+      { id: uid(), name: "Pastor Mark", color: PROFILE_COLORS[7] },
+      { id: uid(), name: "Hannah", color: PROFILE_COLORS[0] },
+      { id: uid(), name: "Samuel", color: PROFILE_COLORS[1] },
+      { id: uid(), name: "Grace", color: PROFILE_COLORS[2] },
     ],
   });
 
   const [newProfileName, setNewProfileName] = useState("");
   const [mode, setMode] = useState<"design" | "simulate">("design");
+  // Mount the simulation on first visit, then keep it alive (hidden) so its
+  // in-progress state survives switching back to Design.
+  const [simMounted, setSimMounted] = useState(false);
+  const [steps, setSteps] = useState<Step[]>(getDefaultSteps);
+  const [designTab, setDesignTab] = useState<"people" | "steps">("people");
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
@@ -694,7 +842,13 @@ export function WorkflowBuilder() {
             <HeaderButton onClick={() => setMode("design")} active={mode === "design"}>
               Design
             </HeaderButton>
-            <HeaderButton onClick={() => setMode("simulate")} active={mode === "simulate"}>
+            <HeaderButton
+              onClick={() => {
+                setSimMounted(true);
+                setMode("simulate");
+              }}
+              active={mode === "simulate"}
+            >
               Simulate
             </HeaderButton>
             {mode === "design" && (
@@ -709,12 +863,41 @@ export function WorkflowBuilder() {
         currentHash="#workflow"
       />
 
-      {mode === "simulate" ? (
-        <WorkflowSimulation state={state} />
-      ) : (
-        <div className="flex-1 flex min-h-0">
-        {/* Sidebar - Profiles */}
+      {/* Simulation view: mounted on first use, then kept alive (hidden) to retain state */}
+      {simMounted && (
+        <div className={cn("flex-1 flex flex-col min-h-0", mode !== "simulate" && "hidden")}>
+          <WorkflowSimulation state={state} steps={steps} />
+        </div>
+      )}
+
+      {/* Design view: hidden (not unmounted) while simulating to preserve canvas state */}
+      <div className={cn("flex-1 flex min-h-0", mode !== "design" && "hidden")}>
+        {/* Sidebar - Tabbed (People / Steps) */}
         <div className="w-56 border-r border-border bg-card/50 flex flex-col shrink-0 overflow-hidden">
+          {/* Tab switcher */}
+          <div className="flex border-b border-border shrink-0">
+            <button
+              onClick={() => setDesignTab("people")}
+              className={cn(
+                "flex-1 font-mono text-[.6rem] py-2 cursor-pointer bg-transparent border-none transition-all",
+                designTab === "people" ? "text-accent-purple border-b-2 border-accent-purple" : "text-txt-dim hover:text-txt"
+              )}
+            >
+              People
+            </button>
+            <button
+              onClick={() => setDesignTab("steps")}
+              className={cn(
+                "flex-1 font-mono text-[.6rem] py-2 cursor-pointer bg-transparent border-none transition-all",
+                designTab === "steps" ? "text-accent-cyan border-b-2 border-accent-cyan" : "text-txt-dim hover:text-txt"
+              )}
+            >
+              Steps ({steps.length})
+            </button>
+          </div>
+
+          {designTab === "people" ? (
+            <>
           <div className="px-3 py-3 border-b border-border">
             <div className="font-mono text-[.6rem] text-txt-dim uppercase tracking-wider mb-2">
               People
@@ -786,6 +969,10 @@ export function WorkflowBuilder() {
               <p>6. Export as JSON template</p>
             </div>
           </div>
+            </>
+          ) : (
+            <StepDesignPanel steps={steps} onStepsChange={setSteps} />
+          )}
         </div>
 
         {/* Flow Canvas */}
@@ -815,8 +1002,7 @@ export function WorkflowBuilder() {
             panOnScroll
           />
         </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }
