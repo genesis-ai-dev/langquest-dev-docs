@@ -93,11 +93,15 @@ Preparation steps and passage structure are **not** in here — they live in the
 ### 2. Project configuration layer
 
 - **`project_workflow_link`** — One per project (unique on project_id). Fields: id, project_id, workflow_template_id, frozen, active, created_at. `frozen = true` blocks re-pointing mid-review; `active` is kept as generic metadata.
+
+  **The link row is permanent; adoption mutates the pointer.** When a project adopts a new fork of its workflow, the same link row is updated to point at the new `workflow_template_id` — a new link row is *not* created. The table earns its place not as a version anchor but because the relationship has its own attributes (`frozen`, adoption time, eventually who adopted) that don't belong as nullable columns on `project`, because it mirrors how content templates attach (and the link RPC is the instantiation hook for template-declared journal lists), and because relaxing the one-workflow-per-project rule later is just dropping a unique index.
+
+  **Consequence for history:** nothing in the schema records which template version a past submission ran under. History is protected by *constraining forks*, not *pinning versions*: the compatibility check below guarantees old review data still resolves in the new fork, and the server-side `review_event` log preserves the true sequence of what happened regardless of where the pointer moves. ("Which exact process did this approval pass through?" is answered by the event log, not the link.)
 - **`project_phase_group`** — Maps abstract group slots to real groups. Fields: workflow_link ref, phase_id, group_slot_id, group ref (→ `project_group`).
 - **`project_group`** — Fields: project ref, name, role_type (`translator`|`reviewer`|`coordinator`), description, active.
 - **`project_group_member`** — Fields: group ref, profile ref, active.
 
-A coordinator picks a template, then maps each `group_slot` to a real `project_group`. Template changes never propagate automatically — the coordinator explicitly adopts a new fork, and a compatibility check ensures every `phase_id`/`group_slot_id` referenced by existing review data still exists in the target template.
+A coordinator picks a template, then maps each `group_slot` to a real `project_group`. Template changes never propagate automatically — the coordinator explicitly adopts a new fork (re-pointing the existing link row), and a compatibility check ensures every `phase_id`/`group_slot_id` referenced by existing review data still exists in the target template.
 
 ### 3. Work layer
 

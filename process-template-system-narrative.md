@@ -18,9 +18,9 @@ This works for open crowdsourcing. It does not work for partners like ETEN, whos
 
 ETEN needs Team → Community → Church → Blessing Board. But ETEN is one partner; the next partner will have three stages, or two reviewers per stage, or majority-vote signoff. Hardcoding ETEN's process repeats the mistake of the old hardcoded `bible`/`fia` project types.
 
-**So we add:** `workflow_template` — a reusable blueprint of ordered **phases**, each with **group slots** (abstract reviewer roles) and a **signoff rule** (any one / unanimous / quorum fraction). Stored as a single JSONB row, published immutably, edited by forking — exactly the architecture the content template system already uses, so we're reusing a proven pattern, not inventing one.
+**So we add:** `workflow_template` — a reusable blueprint of ordered **phases**, each with **group slots** (abstract reviewer roles) and a **signoff rule** (any one / unanimous / quorum fraction). Stored as a single JSONB row, published immutably, edited by forking — exactly the architecture the content template system already uses (down to the server-only revision audit table), so we're reusing a proven pattern, not inventing one.
 
-A project adopts a workflow via `project_workflow_link` (one per project). Projects without one keep vote-based approval — the whole system is opt-in.
+A project adopts a workflow via `project_workflow_link` (one per project). Projects without one keep vote-based approval — the whole system is opt-in. The link row is **permanent**: adopting a new fork re-points its `workflow_template_id` (under a compatibility check that existing review data still resolves) rather than creating a new row, and `frozen` blocks re-pointing mid-review. The table exists because the relationship has its own attributes (`frozen`, adoption time) that don't belong on `project` — history is protected by the compatibility check plus the event log (stage 11), not by pinning template versions.
 
 | Considered | Rejected because |
 |---|---|
@@ -28,6 +28,8 @@ A project adopts a workflow via `project_workflow_link` (one per project). Proje
 | Normalized phase/slot tables with FKs | Heavier than one JSONB row; content templates already proved single-row + fork-always; string-refs into JSONB are an accepted pattern |
 | Mutable templates with locking | Locking was built and rejected in the content template system (stale locks, doesn't prevent conflicts); immutable forks eliminate the problem |
 | Workflow template declares which content templates it's compatible with | Inverted instead: content-template nodes carry a `reviewable` flag — the content side knows what's reviewable, the workflow side stays generic |
+| A `workflow_template_id` FK column on `project` instead of a link table | Would work today, but the relationship's own attributes (`frozen`, adoption time, who adopted) would become nullable workflow columns on a core table; the link table also mirrors how content templates attach, and keeps multi-workflow-per-project a dropped-index away instead of a restructure |
+| A new link row per fork adoption (version anchor) | The link is a pointer, not a history record — the compatibility check guarantees old review data still resolves in the new fork, and the event log already preserves the true history server-side |
 
 ---
 
@@ -115,6 +117,11 @@ Anchoring is precise and durable by construction: library content is immutable p
 
 And because contributions exist before any quest does, and templates/library are shared across projects, every link carries its own `project_id` — which also gives sync bucketing and RLS for free.
 
+Three properties fall out of this design, all decided:
+- **Cross-version:** contributions bind to library content + project, never to a translation quest version — so every version of a pericope sees them. A contribution evolves as a `revision_of` chain, not competing copies.
+- **Never counted toward completion:** study prompts are open-ended (discussions, decisions, drawings) — there's no machine-countable "expected number of contributions," so contributions are surfaced and notified but never flip a step's done/not-done state. Completion stays a deliberate checkmark (stage 4).
+- **Project-wide visibility:** every project member sees every contribution. Anchors provide the contextual narrowing (you see step-3 notes when you're in step 3) — permissions don't.
+
 | Considered | Rejected because |
 |---|---|
 | A bespoke link table per relationship (`asset_anchor`, `review_comment`, `review_asset_flag`, …) | N tables, painful "all links for asset X" unions, fragmented sync bucketing; each new relationship = a migration |
@@ -178,7 +185,11 @@ With prep, assignments, and knowledge capture in place, a quest version is ready
 - `review_submission` — one review pass of one quest version through the phases.
 - `review_decision` — one group's verdict at one phase. Separate from the submission because a phase can have several groups under a quorum rule — one submission, many decisions.
 
-Feedback and rework markers need no new tables: a comment is an asset (`comment_on`/`reply_to` links — threads), and a rework flag is a `flag` link that blocks advancement while active. Stage 6's investment keeps paying.
+Feedback and rework markers need no new tables: a comment is an asset (`comment_on`/`reply_to` links — threads), and a rework flag is a `flag` link that blocks advancement while active. Even a decision's *reason* is a linked comment-asset, not a text column. Stage 6's investment keeps paying.
+
+Two flows complete the picture:
+- **Rework routes through a coordinator.** Rejection notifies the coordinator, who reviews the comments and flags and creates a rework `assignment` (stage 3 again) for a translator. When it's done, the coordinator resubmits — always restarting at phase 1, so every reviewer re-validates the changed work. Partial fixes lean on the **quest remixing** feature: compose a new submittable version from the good parts plus the fixed parts.
+- **Notifications reuse the existing `notification` table** — new target types (`review_submission`, `review_decision`, `assignment`), no new mechanism. Submitted → first-phase groups; rejected → coordinator; rework assigned → translator; approved final → submitter and subscribers.
 
 | Considered | Rejected because |
 |---|---|
@@ -201,7 +212,9 @@ Phase advancement involves guards (did the quorum approve? any open flags?), cas
 - One RPC per transition (`submit_quest`, `cast_decision`, `withdraw_decision`, …): validate actor → evaluate guards against the workflow JSONB → append event → recompute projections.
 - The engine is a *generic interpreter* of the workflow template — a new review process is a new template, never new code.
 
-Bonus: `submit_quest` snapshots the revision ids of the key terms the work relied on (**revision pinning**) — an approval can never silently drift against a later-edited glossary.
+Bonus: `submit_quest` snapshots the revision ids of the key terms the work relied on (**revision pinning**) — an approval can never silently drift against a later-edited glossary. And because state is a pure function of log + template, projections can be *rebuilt by replaying the log* — bug fixes and audits get determinism for free.
+
+The accepted trade: **transition RPCs require connectivity.** Offline devices stage their intents locally (decisions, comments, flags), but state only advances when the server processes them — consistent with the conflict-avoidance posture everywhere else in the design.
 
 | Considered | Rejected because |
 |---|---|
@@ -242,6 +255,8 @@ The only thing that would ever require CRDTs (yjs/automerge) is concurrent offli
 ## 13. Rollout posture
 
 Everything is additive and opt-in: existing tables gain only `quest.submission_state` and new `content_type` values; projects without a workflow keep vote-based approval untouched; system templates (CBBT process, FIA library) ship as starting points; website configuration lands first, app surfaces second.
+
+The division of labor is consistent throughout: **the app does the work** (record, contribute, mark steps done, submit, decide, flag — all offline-capable except state transitions), **the website configures and oversees** (build templates, map groups, create assignments, view the audit timeline).
 
 | Considered | Rejected because |
 |---|---|
