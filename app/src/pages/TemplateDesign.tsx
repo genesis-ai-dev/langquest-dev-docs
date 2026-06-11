@@ -38,25 +38,11 @@ export function TemplateDesign() {
         subtitle="LangQuest · Implementation"
         actions={
           <>
-            <HeaderButton onClick={() => (window.location.hash = "")}>
-              Schema
-            </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#migration")}>
-              Migration
-            </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#lifecycle")}>
-              Lifecycle
-            </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#sync")}>
-              Sync
-            </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#auth")}>
-              Auth
-            </HeaderButton>
             <HeaderButton onClick={copyLayout}>⎘ Copy Layout</HeaderButton>
             <HeaderButton onClick={resetLayout}>⟲ Reset</HeaderButton>
           </>
         }
+        currentHash="#template"
       />
 
       {currentStep === SHARING_STEP_INDEX ? (

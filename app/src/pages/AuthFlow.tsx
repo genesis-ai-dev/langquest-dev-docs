@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Header, HeaderButton } from "../components/Header";
+import { Header } from "../components/Header";
 import { StepWalkthrough } from "../components/StepWalkthrough";
 import { AuthDiagram } from "../components/AuthDiagram";
 import { STEPS } from "../data/authFlow";
@@ -16,22 +16,7 @@ export function AuthFlow() {
       <Header
         title="Auth Flow"
         subtitle="LangQuest · Supabase Auth + PowerSync"
-        actions={
-          <>
-            <HeaderButton onClick={() => (window.location.hash = "")}>
-              Schema
-            </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#migration")}>
-              Migration
-            </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#sync")}>
-              Sync
-            </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#cicd")}>
-              CI/CD
-            </HeaderButton>
-          </>
-        }
+        currentHash="#auth"
       />
 
       <AuthDiagram currentStep={currentStep} />

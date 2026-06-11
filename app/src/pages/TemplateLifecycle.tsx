@@ -30,19 +30,11 @@ export function TemplateLifecycle() {
         subtitle="LangQuest · Template Actions & Reconciliation"
         actions={
           <>
-            <HeaderButton onClick={() => (window.location.hash = "")}>
-              Schema
-            </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#template")}>
-              Template Design
-            </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#migration")}>
-              Migration
-            </HeaderButton>
             <HeaderButton onClick={handleCopy}>Copy Layout</HeaderButton>
             <HeaderButton onClick={handleReset}>Reset Layout</HeaderButton>
           </>
         }
+        currentHash="#lifecycle"
       />
 
       <TemplateLifecycleDiagram

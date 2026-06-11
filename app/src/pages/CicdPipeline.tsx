@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Header, HeaderButton } from "../components/Header";
+import { Header } from "../components/Header";
 import { StepWalkthrough, type Step } from "../components/StepWalkthrough";
 import { CicdDiagram } from "../components/CicdDiagram";
 import { STEPS } from "../data/cicdPipeline";
@@ -27,22 +27,7 @@ export function CicdPipeline() {
       <Header
         title="CI/CD Pipeline"
         subtitle="LangQuest · Developer Workflow"
-        actions={
-          <>
-            <HeaderButton onClick={() => (window.location.hash = "")}>
-              Schema
-            </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#migration")}>
-              Migration
-            </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#sync")}>
-              Sync
-            </HeaderButton>
-            <HeaderButton onClick={() => (window.location.hash = "#auth")}>
-              Auth
-            </HeaderButton>
-          </>
-        }
+        currentHash="#cicd"
       />
 
       <CicdDiagram step={STEPS[currentStep]} />
