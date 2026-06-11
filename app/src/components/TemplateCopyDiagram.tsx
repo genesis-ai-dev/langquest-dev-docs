@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 
 /**
  * Horizontal CLI-tree diagram:
- *   LEFT   Ana's shared template (blueprint)
- *   →      source_copied_id provenance lines
- *   CENTER Ben's copied template (project-specific)
+ *   LEFT   Ana's shared template (template)
+ *   →      copied_from_template_id provenance lines
+ *   CENTER Ben's forked template (project-specific)
  *   →      template_node_id link lines
  *   RIGHT  Linked quests/assets (or ghost "waiting" slots)
  */
@@ -230,20 +230,20 @@ export function TemplateCopyDiagram({ active }: { active: boolean }) {
         <text x={COL_LEFT + TREE_W / 2} y={22}
           fontFamily="var(--font-mono)" fontSize={5.8}
           fill="var(--color-txt-dim)" textAnchor="middle">
-          shared = true · blueprint only
+          shared = true · template only
         </text>
 
         <text x={COL_CENTER + TREE_W / 2} y={12}
           fontFamily="var(--font-mono)" fontSize={8} fontWeight={700}
           fill="var(--color-accent-purple)" textAnchor="middle" letterSpacing="0.06em"
           opacity={phase >= 1 ? 1 : 0} style={{ transition: "opacity 0.5s ease" }}>
-          BEN'S COPY (project)
+          BEN'S FORK (project)
         </text>
         <text x={COL_CENTER + TREE_W / 2} y={22}
           fontFamily="var(--font-mono)" fontSize={5.8}
           fill="var(--color-txt-dim)" textAnchor="middle"
           opacity={phase >= 1 ? 1 : 0} style={{ transition: "opacity 0.5s ease" }}>
-          source_copied_id → Ana's nodes
+          copied_from_template_id → Ana's
         </text>
 
         <text x={COL_RIGHT + LINK_W} y={12}
@@ -292,7 +292,7 @@ export function TemplateCopyDiagram({ active }: { active: boolean }) {
           fill="var(--color-accent-pink)" textAnchor="middle"
           opacity={phase >= 1 ? 0.6 : 0}
           style={{ transition: "opacity 0.6s ease" }}>
-          source_copied_id →
+          copied_from_template_id →
         </text>
 
         {/* ── Right: linked quests/assets ── */}

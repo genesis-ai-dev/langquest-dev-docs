@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>template-system</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="template-system_files/libs/clipboard/clipboard.min.js"></script>
+<script src="template-system_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="template-system_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="template-system_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="template-system_files/libs/quarto-html/popper.min.js"></script>
+<script src="template-system_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="template-system_files/libs/quarto-html/anchor.min.js"></script>
+<link href="template-system_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="template-system_files/libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="template-system_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="template-system_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="template-system_files/libs/bootstrap/bootstrap-d6a003b94517c951b2d65075d42fb01b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+
+
+
+<section id="template-system" class="level1">
+<h1>Template System</h1>
+<p>Everything about how LangQuest handles structural templates — what they are, how they work, and why they work that way.</p>
+<hr>
+<section id="what-templates-are" class="level2">
+<h2 class="anchored" data-anchor-id="what-templates-are">What templates are</h2>
+<p>A template is a tree structure that defines the shape of a project’s content. Bible books, chapters, and verses. FIA pericopes. A dictionary organized by letter. A poetry anthology grouped by theme. Whatever hierarchy the user wants.</p>
+<p>Templates are stored as a single JSONB blob in a <code>template</code> table row. Projects link to templates via a join table (<code>project_template_link</code>). Quests and assets reference individual nodes within the template by opaque ID. Quests and assets also directly reference the <code>project_template_link</code> record directly (not the template record itself).</p>
+<p>The mobile app reads templates. The website edits them.</p>
+<hr>
+</section>
+<section id="why-this-design-exists" class="level2">
+<h2 class="anchored" data-anchor-id="why-this-design-exists">Why this design exists</h2>
+<section id="the-problem" class="level3">
+<h3 class="anchored" data-anchor-id="the-problem">The problem</h3>
+<p>LangQuest needs arbitrary hierarchical structure for projects. Different use cases (Bible translation, FIA, custom curricula) need wildly different tree shapes. The old approach baked structure into app logic with hardcoded <code>template</code> enum values (<code>bible</code>, <code>fia</code>, <code>unstructured</code>). This doesn’t scale.</p>
+<p>We also need the structure to be editable after work has begun, shareable across projects, and functional offline.</p>
+</section>
+<section id="constraints-that-shaped-the-solution" class="level3">
+<h3 class="anchored" data-anchor-id="constraints-that-shaped-the-solution">Constraints that shaped the solution</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 10%">
+<col style="width: 36%">
+<col style="width: 53%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>#</th>
+<th>Constraint</th>
+<th>Why it matters</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>C1</td>
+<td>Offline-first row-level sync (PowerSync + SQLite)</td>
+<td>A single JSONB row (20–100KB) re-syncing on infrequent edits is acceptable. The app is read-only on templates.</td>
+</tr>
+<tr class="even">
+<td>C2</td>
+<td>No materialized <code>template_node</code> table</td>
+<td>Template structure stored as JSONB. No O(projects × nodes) row explosion. Quests/assets reference <code>template_node_id</code> (nanoid) and <code>template_link_id</code> (FK to <code>project_template_link</code>).</td>
+</tr>
+<tr class="odd">
+<td>C3</td>
+<td>Fork-based publishing</td>
+<td>Each publish = new immutable row. No concurrent editing conflicts. No locks.</td>
+</tr>
+<tr class="even">
+<td>C4</td>
+<td>No CRDT, no pessimistic locking</td>
+<td>Single-writer per browser. Editing is website-only. Immutable published rows eliminate concurrency problems entirely.</td>
+</tr>
+<tr class="odd">
+<td>C5</td>
+<td>Arbitrary hierarchical structure</td>
+<td>Not hardcoded. Users define their own trees.</td>
+</tr>
+<tr class="even">
+<td>C6</td>
+<td>Multiple templates per project</td>
+<td>A project can host several independent template trees via multiple <code>project_template_link</code> rows.</td>
+</tr>
+<tr class="odd">
+<td>C7</td>
+<td>Mid-project modification</td>
+<td>Structure can change after work has begun. Deleted nodes handled contextually (see reconciliation rules).</td>
+</tr>
+<tr class="even">
+<td>C8</td>
+<td>Max depth = 5</td>
+<td>Validated server-side on publish.</td>
+</tr>
+<tr class="odd">
+<td>C9</td>
+<td>Opaque node IDs</td>
+<td><code>nanoid(10)</code>, immutable once created. No <code>external_id</code>. Backfill scripts use tree-walking + metadata for semantic matching.</td>
+</tr>
+<tr class="even">
+<td>C10</td>
+<td>Selective scope</td>
+<td>An editor can only apply changes to projects they own.</td>
+</tr>
+<tr class="odd">
+<td>C11</td>
+<td>Frozen project links</td>
+<td><code>frozen = true</code> on a <code>project_template_link</code> row prevents re-pointing. Backward compatibility without blocking template forking.</td>
+</tr>
+<tr class="even">
+<td>C12</td>
+<td>No rollback</td>
+<td>Reverting to a prior version isn’t supported (would orphan linked contributions). <code>template_revision</code> is audit-only.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+<section id="options-considered-and-rejected" class="level2">
+<h2 class="anchored" data-anchor-id="options-considered-and-rejected">Options considered and rejected</h2>
+<section id="materialized-node-rows-one-db-row-per-template-node-per-project" class="level3">
+<h3 class="anchored" data-anchor-id="materialized-node-rows-one-db-row-per-template-node-per-project">Materialized node rows (one DB row per template node per project)</h3>
+<p>Rejected because it creates O(projects × template_size) rows. A Bible template has ~31,000 nodes. 100 projects = 3.1 million rows just for structure. JSONB makes this one row per template, shared by all projects using it.</p>
+</section>
+<section id="pessimistic-locking-lock-edit-save-unlock" class="level3">
+<h3 class="anchored" data-anchor-id="pessimistic-locking-lock-edit-save-unlock">Pessimistic locking (lock → edit → save → unlock)</h3>
+<p>Built initially. Rejected because: - Stale locks from crashed browsers require timeout logic and forced takeover - Doesn’t prevent conflicts, just reduces them - Adds three RPCs (<code>acquire_lock</code>, <code>heartbeat_lock</code>, <code>release_lock</code>) and two columns (<code>locked_by</code>, <code>locked_at</code>) - Fork-always model eliminates the problem entirely — published rows are immutable, so there’s nothing to conflict on</p>
+</section>
+<section id="crdt-based-concurrent-editing" class="level3">
+<h3 class="anchored" data-anchor-id="crdt-based-concurrent-editing">CRDT-based concurrent editing</h3>
+<p>Rejected. Overkill for a single-editor-per-draft scenario. The mobile app doesn’t edit templates. The website is the only editor. One person edits a draft in their browser at a time.</p>
+</section>
+<section id="structure_version-optimistic-concurrency" class="level3">
+<h3 class="anchored" data-anchor-id="structure_version-optimistic-concurrency"><code>structure_version</code> optimistic concurrency</h3>
+<p>Built initially alongside locks. Rejected because the fork model makes it unnecessary — you don’t update existing rows, you insert new ones.</p>
+</section>
+<section id="user-facing-edit-mode-vs-copy-mode-toggle-affecting-delete-behavior" class="level3">
+<h3 class="anchored" data-anchor-id="user-facing-edit-mode-vs-copy-mode-toggle-affecting-delete-behavior">User-facing “edit mode” vs “copy mode” toggle affecting delete behavior</h3>
+<p>Considered initially. The idea was that users would explicitly choose between “hard delete” and “soft delete” modes. Rejected because it surfaces backend schema concerns to end users. Instead, the system decides contextually at publish time (see reconciliation rules below).</p>
+</section>
+<section id="separate-hiddeninvisible-terminology" class="level3">
+<h3 class="anchored" data-anchor-id="separate-hiddeninvisible-terminology">Separate “hidden”/“invisible” terminology</h3>
+<p>Considered. Settled on <code>deleted: true</code> in the JSON because it matches what the user did — they deleted the node. The system preserves it as a tombstone where needed, but the user’s action is just “delete.”</p>
+</section>
+<section id="template-level-locked_for_backward_compat" class="level3">
+<h3 class="anchored" data-anchor-id="template-level-locked_for_backward_compat">Template-level <code>locked_for_backward_compat</code></h3>
+<p>Initially placed on the <code>template</code> table to prevent editing frozen legacy templates. Rejected because it conflated two concepts: (1) whether a template can be forked from (always yes), and (2) whether existing project links can be re-pointed (contextual). Replaced with <code>frozen</code> on <code>project_template_link</code> — the freeze applies to the <em>connection</em>, not the template itself.</p>
+<hr>
+</section>
+</section>
+<section id="how-it-works-now" class="level2">
+<h2 class="anchored" data-anchor-id="how-it-works-now">How it works now</h2>
+<section id="database-schema" class="level3">
+<h3 class="anchored" data-anchor-id="database-schema">Database schema</h3>
+<p>Three new tables:</p>
+<pre><code>template
+├── id (UUID, PK)
+├── name, description, icon, slug
+├── structure (JSONB — the full tree)
+├── source_languoid_id (FK → languoid)
+├── copied_from_template_id (FK → template, provenance chain)
+├── auto_sync, shared, active
+├── creator_id, project_count
+├── download_profiles
+├── created_at, last_updated</code></pre>
+<pre><code>project_template_link
+├── id (UUID, PK)
+├── project_id (FK → project)
+├── template_id (FK → template)
+├── role, active
+├── frozen (prevents re-pointing this link)
+├── download_profiles
+├── UNIQUE(project_id, template_id)</code></pre>
+<pre><code>template_revision (audit only, not synced to mobile)
+├── id (UUID, PK)
+├── template_id (FK → template)
+├── structure (JSONB snapshot)
+├── actions (JSONB — structured diff of changes)
+├── saved_by, saved_at</code></pre>
+<p>Columns added to existing tables:</p>
+<ul>
+<li><code>quest.template_link_id</code>, <code>quest.template_node_id</code></li>
+<li><code>asset.template_link_id</code>, <code>asset.template_node_id</code>, <code>asset.span_end_template_node_id</code></li>
+</ul>
+</section>
+<section id="jsonb-structure-format" class="level3">
+<h3 class="anchored" data-anchor-id="jsonb-structure-format">JSONB structure format</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode json code-with-copy"><code class="sourceCode json"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">"format_version"</span><span class="fu">:</span> <span class="dv">1</span><span class="fu">,</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">"root"</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">"id"</span><span class="fu">:</span> <span class="st">"root"</span><span class="fu">,</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">"name"</span><span class="fu">:</span> <span class="st">"Protestant Bible"</span><span class="fu">,</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">"node_type"</span><span class="fu">:</span> <span class="st">"root"</span><span class="fu">,</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    <span class="dt">"linkable_type"</span><span class="fu">:</span> <span class="st">"quest"</span><span class="fu">,</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">"children"</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="dt">"id"</span><span class="fu">:</span> <span class="st">"4ar28cRTn5"</span><span class="fu">,</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="dt">"name"</span><span class="fu">:</span> <span class="st">"Genesis"</span><span class="fu">,</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        <span class="dt">"node_type"</span><span class="fu">:</span> <span class="st">"book"</span><span class="fu">,</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        <span class="dt">"linkable_type"</span><span class="fu">:</span> <span class="st">"quest"</span><span class="fu">,</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="dt">"children"</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>          <span class="fu">{</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>            <span class="dt">"id"</span><span class="fu">:</span> <span class="st">"sr1kHCBHOL"</span><span class="fu">,</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>            <span class="dt">"name"</span><span class="fu">:</span> <span class="st">"Genesis 1"</span><span class="fu">,</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>            <span class="dt">"node_type"</span><span class="fu">:</span> <span class="st">"chapter"</span><span class="fu">,</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>            <span class="dt">"linkable_type"</span><span class="fu">:</span> <span class="st">"quest"</span><span class="fu">,</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>            <span class="dt">"is_download_unit"</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>            <span class="dt">"children"</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>              <span class="fu">{</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>                <span class="dt">"id"</span><span class="fu">:</span> <span class="st">"fKa9y8aSdj"</span><span class="fu">,</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>                <span class="dt">"name"</span><span class="fu">:</span> <span class="st">"Genesis 1:1"</span><span class="fu">,</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>                <span class="dt">"node_type"</span><span class="fu">:</span> <span class="st">"verse"</span><span class="fu">,</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>                <span class="dt">"linkable_type"</span><span class="fu">:</span> <span class="st">"asset"</span><span class="fu">,</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>                <span class="dt">"allows_spanning"</span><span class="fu">:</span> <span class="kw">true</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>              <span class="fu">}</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>            <span class="ot">]</span></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>          <span class="fu">}</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>        <span class="ot">]</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>      <span class="fu">}</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>    <span class="ot">]</span></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Key node fields: - <code>id</code> — nanoid(10), opaque, immutable<br>
+- <code>name</code> — display name<br>
+- <code>node_type</code> — semantic type (root, book, chapter, verse, etc.)<br>
+- <code>linkable_type</code> — what can be linked here: <code>quest</code> or <code>asset</code>. Absent = folder-only (no contributions linked).<br>
+- <code>is_download_unit</code> — marks the node as a download boundary (auto-enforced for quest nodes containing asset children) (only one per lineage)<br>
+- <code>is_version_anchor</code> — marks where quest versioning occurs (only one per lineage)<br>
+- <code>allows_spanning</code> — whether assets here can span multiple sibling nodes<br>
+- <code>deleted</code> — <code>true</code> if soft-deleted (tombstone)<br>
+- <code>short_label</code>, <code>label_template</code> — UI labeling (generalized, no hardcoded Bible/FIA logic)</p>
+</section>
+<section id="rpcs" class="level3">
+<h3 class="anchored" data-anchor-id="rpcs">RPCs</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 35%">
+<col style="width: 64%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>RPC</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>publish_template</code></td>
+<td>Insert new template row. Optionally re-point selected non-frozen project links. Validates depth ≤ 5 and single-per-lineage flags.</td>
+</tr>
+<tr class="even">
+<td><code>fork_template</code></td>
+<td>Create a named clone: requires user-provided name. Copies structure into new row.</td>
+</tr>
+<tr class="odd">
+<td><code>save_template_metadata</code></td>
+<td>In-place edit of name/description/icon/shared on published templates. Does not touch structure.</td>
+</tr>
+</tbody>
+</table>
+<p>Lock RPCs (<code>acquire</code>, <code>heartbeat</code>, <code>release</code>, <code>force_release_stale</code>) were removed entirely.</p>
+</section>
+<section id="template-composition-copy-from" class="level3">
+<h3 class="anchored" data-anchor-id="template-composition-copy-from">Template composition (copy-from)</h3>
+<p>Users can import subtrees from another template into their draft. The imported nodes are copied with fresh nanoid IDs — there is no live reference or shared identity between templates. This is a convenience feature for constructing new templates from existing parts without building from scratch.</p>
+<hr>
+</section>
+</section>
+<section id="user-experience" class="level2">
+<h2 class="anchored" data-anchor-id="user-experience">User experience</h2>
+<section id="creating-a-template" class="level3">
+<h3 class="anchored" data-anchor-id="creating-a-template">Creating a template</h3>
+<ol type="1">
+<li>User goes to template list on the website</li>
+<li>Clicks “New template” or “Use as starting point” on an existing one</li>
+<li>A local draft opens in the tree editor (browser IndexedDB)</li>
+<li>User builds the tree: add nodes, name them, set properties</li>
+<li>User publishes → new <code>template</code> row inserted</li>
+</ol>
+</section>
+<section id="editing-a-template" class="level3">
+<h3 class="anchored" data-anchor-id="editing-a-template">Editing a template</h3>
+<ol type="1">
+<li>User selects a published template</li>
+<li>Two entry points (these set the <em>default</em> publish intent, not a mode):
+<ul>
+<li><strong>“Use as starting point”</strong> — initial intent is to make something new</li>
+<li><strong>“Update for my projects”</strong> — initial intent is to apply changes to existing projects</li>
+</ul></li>
+<li>Draft opens in the tree editor — both entry points produce the same editing experience</li>
+<li>User makes changes (add, rename, reorder, delete nodes). All deleted nodes are marked <code>deleted: true</code>.</li>
+<li>Undo/redo works. Bulk operations count as single undo steps.</li>
+<li>At <strong>publish time</strong>, the user chooses:
+<ul>
+<li>Apply to existing projects → fork published with tombstones preserved, links re-pointed</li>
+<li>Make available for new projects → fork published with tombstones stripped</li>
+<li>Both → two forks from the same draft (one with tombstones, one clean)</li>
+<li>The initial entry point sets defaults, but the user can switch or select both</li>
+</ul></li>
+</ol>
+</section>
+<section id="applying-a-template-to-a-project" class="level3">
+<h3 class="anchored" data-anchor-id="applying-a-template-to-a-project">Applying a template to a project</h3>
+<ul>
+<li>New project: user picks a template during project creation</li>
+<li>Existing project: owner links a template via the project settings</li>
+</ul>
+</section>
+<section id="deleting-nodes-in-the-editor" class="level3">
+<h3 class="anchored" data-anchor-id="deleting-nodes-in-the-editor">Deleting nodes in the editor</h3>
+<p>The user just deletes. There’s no “hide” vs “remove” choice. They select a node and hit delete. The draft always stores <code>deleted: true</code>. What happens at publish time depends on the user’s publish choices (see reconciliation rules).</p>
+<hr>
+</section>
+</section>
+<section id="reconciliation-rules" class="level2">
+<h2 class="anchored" data-anchor-id="reconciliation-rules">Reconciliation rules</h2>
+<p>This is the core insight of the system. The template declares <em>what should exist</em>. The system decides how to package the published output based on where it’s going.</p>
+<section id="rule-1-publish-existing-projects-have-contributions" class="level3">
+<h3 class="anchored" data-anchor-id="rule-1-publish-existing-projects-have-contributions">Rule 1: Publish → existing projects (have contributions)</h3>
+<ul>
+<li>Node IDs stay the same</li>
+<li>Deleted nodes kept as <code>deleted: true</code> (tombstones preserved)</li>
+<li>Existing quests/assets still reference valid node IDs</li>
+<li>Selected non-frozen <code>project_template_link</code> rows re-pointed to the new template row</li>
+</ul>
+</section>
+<section id="rule-2-publish-new-projects-general-availability-no-contributions" class="level3">
+<h3 class="anchored" data-anchor-id="rule-2-publish-new-projects-general-availability-no-contributions">Rule 2: Publish → new projects / general availability (no contributions)</h3>
+<ul>
+<li>Deleted nodes completely removed from JSONB</li>
+<li>No orphan risk — nothing references those IDs yet</li>
+<li>Clean template published</li>
+</ul>
+</section>
+<section id="rule-3-applying-a-template-with-tombstones-to-a-new-project" class="level3">
+<h3 class="anchored" data-anchor-id="rule-3-applying-a-template-with-tombstones-to-a-new-project">Rule 3: Applying a template with tombstones to a new project</h3>
+<p>If a published template contains <code>deleted: true</code> nodes and someone applies it to a new project, the system strips them automatically — new projects start clean.</p>
+</section>
+<section id="rule-4-dual-publish" class="level3">
+<h3 class="anchored" data-anchor-id="rule-4-dual-publish">Rule 4: Dual publish</h3>
+<p>From the same draft, the system can produce two forks: - One with tombstones (for re-pointing existing project links) - One clean (for new use / general availability)</p>
+<p>Both share <code>copied_from_template_id</code> pointing to the same source.</p>
+</section>
+<section id="rule-5-frozen-project-links" class="level3">
+<h3 class="anchored" data-anchor-id="rule-5-frozen-project-links">Rule 5: Frozen project links</h3>
+<p><code>frozen = true</code> on a <code>project_template_link</code> prevents that link from being re-pointed to a new template. Legacy backfilled links (Bible, FIA, auto-generated) are frozen. The template itself is still freely forkable as a starting point.</p>
+<hr>
+</section>
+</section>
+<section id="compatibility-checking-adopting-another-editors-fork" class="level2">
+<h2 class="anchored" data-anchor-id="compatibility-checking-adopting-another-editors-fork">Compatibility checking (adopting another editor’s fork)</h2>
+<p>When a project owner wants to adopt a newer version of their template (published by someone else), the system verifies compatibility at re-point time:</p>
+<ul>
+<li>Every <code>template_node_id</code> referenced by the project’s existing quests/assets must exist in the target template (including tombstoned nodes)</li>
+<li>If any referenced node ID is missing from the target template, the re-point is blocked with an explanation</li>
+</ul>
+<p>This is a runtime check — no precomputed fingerprint column needed. It runs only when someone explicitly chooses to switch their project to a different template version.</p>
+<section id="template-history-ui" class="level3">
+<h3 class="anchored" data-anchor-id="template-history-ui">Template history UI</h3>
+<p>Users can browse the provenance chain (<code>copied_from_template_id</code> links) to see how templates have evolved over time, who forked what, and what changed in each version (via <code>template_revision</code>).</p>
+<hr>
+</section>
+</section>
+<section id="structured-revision-diffs" class="level2">
+<h2 class="anchored" data-anchor-id="structured-revision-diffs">Structured revision diffs</h2>
+<p><code>template_revision.actions</code> stores a structured diff computed at publish time by comparing the source template’s structure against the new one. The diff captures:</p>
+<ul>
+<li>Nodes added (with IDs and positions)</li>
+<li>Nodes removed / marked deleted</li>
+<li>Nodes renamed</li>
+<li>Nodes moved (parent change or reorder)</li>
+<li>Property changes (linkable_type, is_download_unit, etc.)</li>
+</ul>
+<p><strong>Implementation approach</strong>: A custom tree-diffing function walks both structures (old and new) in parallel by node ID. Since node IDs are stable and immutable, the diff is straightforward — presence/absence/property-changes per ID. This avoids needing a full CRDT library (automerge/loro) for what is fundamentally a one-time snapshot comparison, not ongoing concurrent editing.</p>
+<hr>
+</section>
+<section id="provenance" class="level2">
+<h2 class="anchored" data-anchor-id="provenance">Provenance</h2>
+<p>Every published template carries <code>copied_from_template_id</code>, forming a linked list:</p>
+<pre><code>Template A (original, copied_from = null)
+  └── Template B (copied_from = A)
+        └── Template C (copied_from = B)</code></pre>
+<p><code>template_revision</code> stores a full JSONB snapshot + structured diff for each publish event. Together they give complete traceability.</p>
+<hr>
+</section>
+<section id="what-changed-in-the-codebase" class="level2">
+<h2 class="anchored" data-anchor-id="what-changed-in-the-codebase">What changed in the codebase</h2>
+<section id="supabase-migrations-5-files" class="level3">
+<h3 class="anchored" data-anchor-id="supabase-migrations-5-files">Supabase migrations (5 files)</h3>
+<ul>
+<li><code>20260416120000</code> — Core DDL: <code>template</code>, <code>project_template_link</code>, <code>template_revision</code> tables. Columns on <code>quest</code> and <code>asset</code>. Trigger for <code>project_count</code>. RLS policies. PowerSync publication.</li>
+<li><code>20260416120001</code> — RPCs: <code>publish_template</code>, <code>fork_template</code>, <code>save_template_metadata</code>. Validation helpers.</li>
+<li><code>20260416120002</code> — Backfill: seeds Bible/FIA templates, creates frozen links for existing projects, populates <code>template_link_id</code> on quests/assets.</li>
+<li><code>20260416120003</code> — <code>pg_cron</code> schedule for daily FIA template refresh.</li>
+<li><code>20260416120004</code> — Auto-generates templates for existing unstructured projects with frozen links.</li>
+</ul>
+</section>
+<section id="mobile-app-langquest" class="level3">
+<h3 class="anchored" data-anchor-id="mobile-app-langquest">Mobile app (langquest)</h3>
+<ul>
+<li><strong>Drizzle schema</strong> (<code>db/drizzleSchemaColumns.ts</code>, <code>drizzleSchema.ts</code>, <code>drizzleSchemaSynced.ts</code>, <code>drizzleSchemaLocal.ts</code>) — Added <code>template</code> and <code>project_template_link</code> table definitions.</li>
+<li><strong>Constants</strong> (<code>constants/templateTypes.ts</code>) — <code>TemplateNode</code>, <code>TemplateStructure</code> types, validation constants.</li>
+<li><strong>Hooks</strong> (<code>hooks/useProjectTemplate.ts</code>, <code>hooks/useQuestCreationFromTemplate.ts</code>) — Data fetching for template-linked projects.</li>
+<li><strong>Utils</strong> (<code>utils/templateUtils.ts</code>) — Structure validation, index building, node lookup.</li>
+<li><strong>Views</strong> (<code>views/new/TemplateNodeList.tsx</code>) — Tree display component.</li>
+<li><strong>Recording service</strong> (<code>views/new/recording/services/recordingService.ts</code>) — Updated column references.</li>
+<li><strong>Sync rules</strong> (<code>supabase/config/sync-rules.yml</code>) — Added template tables to sync.</li>
+<li><strong>Edge function</strong> (<code>supabase/functions/fia-refresh-templates/</code>) — Daily FIA pericope refresh.</li>
+<li><strong>Migration</strong> (<code>db/migrations/2.3-to-3.0.ts</code>) — Local SQLite schema migration.</li>
+</ul>
+</section>
+<section id="website-langquest-website" class="level3">
+<h3 class="anchored" data-anchor-id="website-langquest-website">Website (langquest-website)</h3>
+<ul>
+<li><strong><code>src/lib/template/</code></strong> — Core library: types, RPCs, actions, node resolver, draft store (IndexedDB), create-draft, hidden-nodes utilities.</li>
+<li><strong>Components</strong> — <code>template-editor-tree.tsx</code> (react-arborist tree), <code>template-node-panel.tsx</code> (side panel), <code>template-picker.tsx</code> (selection UI).</li>
+<li><strong>Pages</strong> — Template list, single-template view, draft editor, new template.</li>
+<li><strong>Quest explorer</strong> — Updated to resolve nodes from templates.</li>
+</ul>
+</section>
+<section id="dev-docs-langquest-dev-docs" class="level3">
+<h3 class="anchored" data-anchor-id="dev-docs-langquest-dev-docs">Dev docs (langquest-dev-docs)</h3>
+<ul>
+<li><strong>Interactive diagrams</strong> — React Flow-based lifecycle diagrams showing forking, reconciliation, and node ID behavior.</li>
+<li><strong>Reference SQL</strong> (<code>database_schema.sql</code>) — Full schema documentation.</li>
+<li><strong>Design documents</strong> — <code>template-design-constraints.md</code>, <code>template-lifecycle.md</code>, <code>template-system.md</code> (this file).</li>
+</ul>
+</section>
+<section id="scripts" class="level3">
+<h3 class="anchored" data-anchor-id="scripts">Scripts</h3>
+<ul>
+<li><code>scripts/generate-bible-template.py</code> — Generates full Bible JSONB tree and backfills node IDs.</li>
+</ul>
+<hr>
+</section>
+</section>
+<section id="terminology" class="level2">
+<h2 class="anchored" data-anchor-id="terminology">Terminology</h2>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 40%">
+<col style="width: 60%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Template</td>
+<td>A JSONB tree structure defining content hierarchy</td>
+</tr>
+<tr class="even">
+<td>Node</td>
+<td>A single element in the template tree (book, chapter, verse, etc.)</td>
+</tr>
+<tr class="odd">
+<td>Template link</td>
+<td>The <code>project_template_link</code> row connecting a project to a template</td>
+</tr>
+<tr class="even">
+<td>Frozen link</td>
+<td>A template link with <code>frozen = true</code> — cannot be re-pointed</td>
+</tr>
+<tr class="odd">
+<td>Fork</td>
+<td>Creating a new template row based on an existing one</td>
+</tr>
+<tr class="even">
+<td>Tombstone</td>
+<td>A node marked <code>deleted: true</code> — hidden but preserved for referential integrity</td>
+</tr>
+<tr class="odd">
+<td>Publish</td>
+<td>Inserting a new immutable template row</td>
+</tr>
+<tr class="even">
+<td>Draft</td>
+<td>Local-only (IndexedDB) working copy of a template being edited</td>
+</tr>
+<tr class="odd">
+<td>Reconciliation</td>
+<td>The system’s contextual decision about how to package template changes for different targets</td>
+</tr>
+<tr class="even">
+<td>Provenance</td>
+<td>The <code>copied_from_template_id</code> chain linking forks back to their source</td>
+</tr>
+<tr class="odd">
+<td>Composition</td>
+<td>Copying subtrees from another template into a draft (fresh IDs, no shared identity)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+<section id="search-and-discovery" class="level2">
+<h2 class="anchored" data-anchor-id="search-and-discovery">Search and discovery</h2>
+<section id="filtering" class="level3">
+<h3 class="anchored" data-anchor-id="filtering">Filtering</h3>
+<p>The template list page provides two filtering mechanisms:</p>
+<ol type="1">
+<li><strong>Languoid dropdown</strong> — filters templates by <code>source_languoid_id</code>. Defaults to the user’s preferred languoid (or “All languages”). Uses the existing <code>LanguoidCombobox</code> component with search-as-you-type.</li>
+<li><strong>Text search</strong> — client-side filter on name, slug, and description.</li>
+</ol>
+<p>Results are always sorted by <code>project_count DESC</code> (popularity). The languoid filter is applied server-side for efficiency; text search is client-side on the returned set.</p>
+</section>
+<section id="provenance-panel" class="level3">
+<h3 class="anchored" data-anchor-id="provenance-panel">Provenance panel</h3>
+<p>Clicking a template card opens a slide-out panel showing:</p>
+<ul>
+<li>Template metadata (name, description, creator, stats)</li>
+<li><strong>Fork lineage tree</strong> — the full family of templates connected via <code>copied_from_template_id</code>, rendered as an indented tree. Each node shows name and project count. Users can click any node in the tree to view its revision history.</li>
+<li><strong>Revision history</strong> — <code>template_revision</code> entries for the focused template, showing date and change summary.</li>
+<li>Action buttons (“Use as starting point”, “Update for my projects”)</li>
+</ul>
+</section>
+<section id="rpcs-supporting-discovery" class="level3">
+<h3 class="anchored" data-anchor-id="rpcs-supporting-discovery">RPCs supporting discovery</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 35%">
+<col style="width: 64%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>RPC</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>get_template_lineage</code></td>
+<td>Given any template ID, walks <code>copied_from_template_id</code> up to the root ancestor and down to all descendants. Returns flat JSONB array of the full family.</td>
+</tr>
+<tr class="even">
+<td><code>get_template_revisions</code></td>
+<td>Returns revision history (date, author, actions summary) for a single template.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+</section>
+</section>
+<section id="open-questions-to-be-explored" class="level2">
+<h2 class="anchored" data-anchor-id="open-questions-to-be-explored">Open questions (to be explored)</h2>
+<ol type="1">
+<li><strong>Template naming and search</strong> — <code>fork_template</code> requires a user-provided name. Duplicate names are allowed (only <code>slug</code> is unique). The current approach uses languoid filtering + text search + popularity sort. May need refinement as the template count grows.</li>
+<li><strong>Structured diff implementation</strong> — The tree-diff function needs to be written. Exact format of the diff JSONB (add/remove/rename/move/property-change entries) to be finalized during implementation.</li>
+</ol>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

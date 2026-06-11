@@ -13,6 +13,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "CI/CD", hash: "#cicd" },
   { label: "Auth", hash: "#auth" },
   { label: "Content Templates (beta)", hash: "#template" },
+  { label: "Template Lifecycle (beta)", hash: "#lifecycle" },
   { label: "Process Templates (beta)", hash: "#workflow" },
 ];
 

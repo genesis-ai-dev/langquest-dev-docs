@@ -35,7 +35,7 @@ export function TemplateDesign() {
     <div className="h-screen flex flex-col overflow-hidden">
       <Header
         title="Template Design"
-        subtitle="LangQuest · Proposal"
+        subtitle="LangQuest · Implementation"
         actions={
           <>
             <HeaderButton onClick={copyLayout}>⎘ Copy Layout</HeaderButton>
@@ -54,7 +54,7 @@ export function TemplateDesign() {
           nodeDefs={NODES}
           edgeDefs={EDGES}
           highlightedNodes={step?.highlightNodes}
-          diagramTitle="template_node proposal — canonical structure separate from data spine"
+          diagramTitle="template — canonical structure separate from data spine"
         />
       )}
 
@@ -62,7 +62,7 @@ export function TemplateDesign() {
         steps={STEPS}
         currentStep={currentStep}
         onStepChange={setCurrentStep}
-        phaseLabel="Proposal"
+        phaseLabel="Implementation"
         phaseColor="var(--color-accent-green)"
       />
     </div>
