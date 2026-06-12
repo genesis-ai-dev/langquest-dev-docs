@@ -86,9 +86,6 @@ export const NODES: DiagramNodeDef[] = [
       F("id", { pk: true }),
       F("project_id", { fk: { node: "n-project", field: "id" } }),
       F("template_id", { fk: { node: "n-template", field: "id" } }),
-      F("role", {
-        hint: "Optional label like 'primary'. A project can link to multiple templates.",
-      }),
       F("active"),
       F("frozen", {
         hint: "If true, this link cannot be re-pointed to a new template. Set on legacy backfilled projects.",
@@ -270,7 +267,7 @@ export const STEPS: Step[] = [
   {
     title: "project_template_link — stable identity",
     description:
-      'The link table has its own UUID PK. Quests and assets reference this stable ID via <code>template_link_id</code>. When a template is forked, the link\'s <code>template_id</code> is re-pointed to the new template — quest/asset references remain stable. A project can link to multiple templates simultaneously.',
+      'The link table has its own UUID PK. Quests and assets reference this stable ID via <code>template_link_id</code>. When a template is forked, the link\'s <code>template_id</code> is re-pointed to the new template — quest/asset references remain stable. One link per project (unique on <code>project_id</code>): a project has a single template, and multiple bodies of content are composed as subtrees within it.',
     highlightNodes: ["n-pbl", "n-project", "n-template"],
   },
   {
