@@ -8,8 +8,9 @@ import { AuthFlow } from "./pages/AuthFlow";
 import { TemplateDesign } from "./pages/TemplateDesign";
 import { TemplateLifecycle } from "./pages/TemplateLifecycle";
 import { WorkflowBuilder } from "./pages/WorkflowBuilder";
+import { CombinedSchema } from "./pages/CombinedSchema";
 
-type Page = "schema" | "migration" | "cicd" | "sync" | "auth" | "template" | "lifecycle" | "workflow";
+type Page = "schema" | "migration" | "cicd" | "sync" | "auth" | "template" | "lifecycle" | "workflow" | "combined";
 
 function getPage(): Page {
   const h = window.location.hash;
@@ -20,6 +21,7 @@ function getPage(): Page {
   if (h === "#template") return "template";
   if (h === "#lifecycle") return "lifecycle";
   if (h === "#workflow") return "workflow";
+  if (h === "#combined") return "combined";
   return "schema";
 }
 
@@ -48,6 +50,8 @@ export default function App() {
         <TemplateLifecycle />
       ) : page === "workflow" ? (
         <WorkflowBuilder />
+      ) : page === "combined" ? (
+        <CombinedSchema />
       ) : (
         <DatabaseSchema />
       )}

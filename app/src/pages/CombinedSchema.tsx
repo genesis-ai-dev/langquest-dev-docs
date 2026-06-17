@@ -7,22 +7,23 @@ import {
   loadEdgeMidXs,
 } from "../components/DiagramShell";
 import { StepWalkthrough } from "../components/StepWalkthrough";
-import { TemplateCopyDiagram } from "../components/TemplateCopyDiagram";
-import { NODES, EDGES, STEPS, SHARING_STEP_INDEX } from "../data/templateDesign";
+import { NODES, EDGES, STEPS, SYSTEMS } from "../data/combinedSchema";
 
-export function TemplateDesign() {
+const STORAGE_KEY = "lq-combined-schema";
+
+export function CombinedSchema() {
   const [currentStep, setCurrentStep] = useState(0);
   const [layoutKey, setLayoutKey] = useState(0);
   const step = STEPS[currentStep];
 
   const resetLayout = useCallback(() => {
-    clearDiagramLayout("lq-template-design");
+    clearDiagramLayout(STORAGE_KEY);
     setLayoutKey((k) => k + 1);
   }, []);
 
   const copyLayout = useCallback(() => {
     try {
-      const raw = localStorage.getItem("lq-template-design");
+      const raw = localStorage.getItem(STORAGE_KEY);
       const saved: Record<string, { x: number; y: number }> = raw
         ? JSON.parse(raw)
         : {};
@@ -30,7 +31,7 @@ export function TemplateDesign() {
         const pos = saved[n.id] ?? { x: n.x, y: n.y };
         return { id: n.id, x: Math.round(pos.x), y: Math.round(pos.y), w: n.w };
       });
-      const savedMidXs = loadEdgeMidXs("lq-template-design");
+      const savedMidXs = loadEdgeMidXs(STORAGE_KEY);
       const edges: Record<string, number> = {};
       for (const e of EDGES) {
         const midX = savedMidXs[edgeKeyOf(e)] ?? e.midX;
@@ -45,37 +46,59 @@ export function TemplateDesign() {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
       <Header
-        title="Template Design"
-        subtitle="LangQuest · Implementation"
+        title="Combined Template Schema"
+        subtitle="LangQuest · Content + Library + Process systems"
         actions={
           <>
             <HeaderButton onClick={copyLayout}>⎘ Copy Layout</HeaderButton>
             <HeaderButton onClick={resetLayout}>⟲ Reset</HeaderButton>
           </>
         }
-        currentHash="#template"
+        currentHash="#combined"
       />
 
-      {currentStep === SHARING_STEP_INDEX ? (
-        <TemplateCopyDiagram active />
-      ) : (
+      <div className="flex-1 min-h-0 relative flex flex-col">
         <DiagramShell
           key={layoutKey}
-          storageKey="lq-template-design"
+          storageKey={STORAGE_KEY}
           nodeDefs={NODES}
           edgeDefs={EDGES}
           highlightedNodes={step?.highlightNodes}
-          diagramTitle="template — canonical structure separate from data spine"
+          diagramTitle="all three template systems + the existing tables they connect with"
         />
-      )}
+        <Legend />
+      </div>
 
       <StepWalkthrough
         steps={STEPS}
         currentStep={currentStep}
         onStepChange={setCurrentStep}
-        phaseLabel="Implementation"
-        phaseColor="var(--color-accent-green)"
+        phaseLabel="Combined Schema"
+        phaseColor="var(--color-accent-blue)"
       />
+    </div>
+  );
+}
+
+function Legend() {
+  return (
+    <div className="absolute top-2 left-2 z-10 bg-panel border border-border rounded-[10px] px-3 py-2.5 backdrop-blur-[8px] pointer-events-none">
+      <div className="font-mono text-[.6rem] text-txt-dim uppercase tracking-[.12em] mb-1.5">
+        Systems
+      </div>
+      <div className="flex flex-col gap-1">
+        {Object.values(SYSTEMS).map((s) => (
+          <div key={s.label} className="flex items-center gap-2">
+            <span
+              className="w-3 h-3 rounded-[3px] border-2 shrink-0"
+              style={{ borderColor: s.color }}
+            />
+            <span className="font-mono text-[.72rem] text-txt-muted">
+              {s.label}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -64,7 +64,7 @@ export const SCENE0_NODES: LcNodeDef[] = [
         { name: "id", pk: true }, { name: "slug" }, { name: "name" }, { name: "description" },
         { name: "icon" }, { name: "structure", highlight: true }, { name: "source_languoid_id", fk: true },
         { name: "copied_from_template_id", fk: true }, { name: "auto_sync" }, { name: "shared" },
-        { name: "project_count" }, { name: "creator_id" },
+        { name: "creator_id" },
       ],
     },
   },

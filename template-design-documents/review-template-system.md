@@ -1,6 +1,6 @@
 # Process Template System
 
-Everything about how LangQuest runs a multi-stage review process — what it is, how it works, and why it works that way. This is the review/workflow counterpart to the content [Template System](./template-system.md), and it reuses the same JSONB template ideas.
+Everything about how LangQuest runs a multi-stage review process — what it is, how it works, and why it works that way. This is the review/workflow counterpart to the content [Template System](./content-template-system.md), and it reuses the same JSONB template ideas.
 
 ---
 
@@ -16,7 +16,7 @@ It does **not** define the preparation work. Three templates are in play, and th
 
 The finished work that enters review is a quest version whose assets are tied (indirectly) to content-template nodes and to study-material steps. The process template only governs what happens to that work once it's submitted.
 
-Like content templates, a workflow template is stored as a single JSONB blob in a `workflow_template` table row. Projects link to one workflow via a join table (`project_workflow_link`). Review records (decisions) reference individual phases and group slots inside the template by opaque ID.
+Like content templates, a workflow template is stored as a single JSONB blob in a `workflow_template` table row. Each project references one workflow directly via `project.workflow_template_id` (no join table — see *Why no link table* below). Review records (decisions) reference individual phases and group slots inside the template by opaque ID.
 
 The mobile app does the work (record, mark steps done, submit, review, flag). The website configures everything (build templates, map groups, create assignments, view the audit trail).
 
@@ -57,7 +57,7 @@ The system has five layers. The first two are configured on the website; the las
 
 ### 1. Workflow template layer
 
-- **`workflow_template`** — One JSONB row. Fields: id, name, description, slug, creator_id (null = system), `structure` (JSONB), copied_from_template_id (provenance), shared, active, project_count, created_at, last_updated.
+- **`workflow_template`** — One JSONB row. Fields: id, name, description, slug, creator_id (null = system), `structure` (JSONB), copied_from_template_id (provenance), shared, active, created_at, last_updated. **No `project_count`** — popularity is computed by query over `project` (grouped by `workflow_template_id`), not stored (a cached counter would churn the synced row; see the [content template doc](./content-template-system.md) *Fields that must stay off the template row*).
 - **`workflow_template_revision`** — Audit only, not synced. Fields: template ref, structure snapshot, actions (structured diff), saved_by, saved_at.
 
 **`structure` JSONB shape:**
@@ -86,22 +86,73 @@ type WorkflowGroupSlot = {
 };
 ```
 
+**Example — ETEN's Team → Community → Church → Blessing Board flow:**
+
+```json
+{
+  "format_version": 1,
+  "phases": [
+    {
+      "id": "Ph1teamXk9",
+      "name": "Translation Team Check",
+      "order_index": 0,
+      "signoff_rule": "unanimous",
+      "group_slots": [
+        { "id": "gsTeam0001", "name": "Translation Team", "description": "The drafting team checks its own work first." }
+      ]
+    },
+    {
+      "id": "Ph2commQz4",
+      "name": "Community Review",
+      "order_index": 1,
+      "signoff_rule": "quorum",
+      "quorum_threshold": 0.66,
+      "group_slots": [
+        { "id": "gsCommA111", "name": "Community Group A" },
+        { "id": "gsCommB222", "name": "Community Group B" },
+        { "id": "gsCommC333", "name": "Community Group C" }
+      ]
+    },
+    {
+      "id": "Ph3churLp7",
+      "name": "Church Leadership",
+      "order_index": 2,
+      "signoff_rule": "any_one",
+      "group_slots": [
+        { "id": "gsElders01", "name": "Church Elders" }
+      ]
+    },
+    {
+      "id": "Ph4boardMm",
+      "name": "Blessing Board",
+      "order_index": 3,
+      "signoff_rule": "unanimous",
+      "group_slots": [
+        { "id": "gsBoard001", "name": "Blessing Board" }
+      ]
+    }
+  ]
+}
+```
+
+Phase 2 advances once **2 of its 3** community groups approve (`quorum`, denominator = mapped groups, auto-adjusting); phases 1 and 4 need **all** their groups; phase 3 needs **any one**. Each `id` is an opaque nanoid the project's `project_phase_group` rows map to real groups, and that review decisions reference — never branched on by name. (Removed phases keep a `deleted: true` tombstone so historical decisions still resolve, per C4.)
+
 Preparation steps and passage structure are **not** in here — they live in the study material template and the content/project template respectively. The process template references neither directly; the three are tied together at the work/assignment layer.
 
 **RPCs:** `publish_workflow_template`, `fork_workflow_template`, `save_workflow_template_metadata` — mirror the content template system.
 
 ### 2. Project configuration layer
 
-- **`project_workflow_link`** — One per project (unique on project_id). Fields: id, project_id, workflow_template_id, frozen, active, created_at. `frozen = true` blocks re-pointing mid-review; `active` is kept as generic metadata.
+- **`project` (columns added)** — `workflow_template_id` (FK → workflow_template, nullable; the project's single workflow) and `workflow_frozen` (blocks re-pointing mid-review). **There is no `project_workflow_link` table** — see *Why no link table* below. Adoption mutates `project.workflow_template_id` in place (a fork re-point); the `set_project_workflow` RPC is the hook that instantiates template-declared journal lists. (The old link's `active` flag is dropped — a project already has its own lifecycle state.)
 
-  **The link row is permanent; adoption mutates the pointer.** When a project adopts a new fork of its workflow, the same link row is updated to point at the new `workflow_template_id` — a new link row is *not* created. The table earns its place not as a version anchor but because the relationship has its own attributes (`frozen`, adoption time, eventually who adopted) that don't belong as nullable columns on `project`, because it mirrors how content templates attach (and the link RPC is the instantiation hook for template-declared journal lists), and because relaxing the one-workflow-per-project rule later is just dropping a unique index.
+  **Why no link table.** A link table that's unique on `project_id` is just extra columns on `project` wearing a costume: everything it held describes the project, and since a project points at exactly one workflow, any row that referenced the link can reference `project_id` and land in the same place. So `workflow_template_id` and `workflow_frozen` live on `project` directly. (If multiple-workflows-per-project ever becomes real — unlikely; a project is one validation process — reintroducing a link table is a contained change.)
 
-  **Consequence for history:** nothing in the schema records which template version a past submission ran under. History is protected by *constraining forks*, not *pinning versions*: the compatibility check below guarantees old review data still resolves in the new fork, and the server-side `review_event` log preserves the true sequence of what happened regardless of where the pointer moves. ("Which exact process did this approval pass through?" is answered by the event log, not the link.)
-- **`project_phase_group`** — Maps abstract group slots to real groups. Fields: workflow_link ref, phase_id, group_slot_id, group ref (→ `project_group`).
+  **Consequence for history:** nothing in the schema records which template version a past submission ran under. History is protected by *constraining forks*, not *pinning versions*: the compatibility check below guarantees old review data still resolves in the new fork, and the server-side `review_event` log preserves the true sequence of what happened regardless of where the pointer moves. ("Which exact process did this approval pass through?" is answered by the event log, not the pointer.)
+- **`project_phase_group`** — Maps abstract group slots to real groups. Fields: project ref (→ `project`), phase_id, group_slot_id, group ref (→ `project_group`).
 - **`project_group`** — Fields: project ref, name, role_type (`translator`|`reviewer`|`coordinator`), description, active.
 - **`project_group_member`** — Fields: group ref, profile ref, active.
 
-A coordinator picks a template, then maps each `group_slot` to a real `project_group`. Template changes never propagate automatically — the coordinator explicitly adopts a new fork (re-pointing the existing link row), and a compatibility check ensures every `phase_id`/`group_slot_id` referenced by existing review data still exists in the target template.
+A coordinator picks a template, then maps each `group_slot` to a real `project_group`. Template changes never propagate automatically — the coordinator explicitly adopts a new fork (re-pointing `project.workflow_template_id`), and a compatibility check ensures every `phase_id`/`group_slot_id` referenced by existing review data still exists in the target template.
 
 ### 3. Work layer
 
@@ -143,7 +194,7 @@ Costs, and how they're handled:
 Contributions then work like this:
 
 - Extended **`asset.content_type`** (simplified — decided): `journal` (a journal list) | `journal_entry` (any contribution — discussion, key term, drawing, rationale) | `comment` (review discussion), plus existing `source`|`translation`|`transcription`. **Kind subtypes (`discussion`/`rationale`/`key_term`/`media`) were dropped:** categorization comes from journal-list membership, not a type enum — the lists *are* the categories. `content_type` says what an asset *is*, is set once, and never changes; `asset_link.link_role` says how it *connects*, and links come and go freely. (E.g. an anchored-but-unfiled contribution = `journal_entry` + one `anchor` link; filed later = same asset gains a `member_of` link.)
-- **Study material now lives in the LangQuest DB** as its own structured content (no longer pulled from an external API). It has stable node ids, so `asset_link` rows can target it reliably.
+- **Study material now lives in the LangQuest DB** as its own structured content (no longer pulled from an external API). It has stable node ids, so `asset_link` rows can target it reliably. The concrete design is the [library template system](./library-template-system.md) (proposal).
 - A contribution = an asset + an `asset_link` (role `anchor`) to a study-material node, with optional `anchor_data` pinning a text range or audio timestamp. The link row's `project_id` scopes it.
 
 **Anchoring (decided — fine-grained in MVP, version-pinned).** Users can link responses to specific passages and/or audio timestamps. Durability comes from two reinforcing choices:
@@ -159,6 +210,26 @@ type AnchorData = {
   audio?: { start_ms: number; end_ms?: number; audio_ref: string };
 };
 // either or both may be present; null anchor_data = node-level anchor
+```
+
+**Examples** — a text anchor (comment on a phrase in a pinned study-material version) and an audio anchor (a note on 0:42–0:55 of a recording):
+
+```json
+{
+  "text": {
+    "start": 142,
+    "end": 167,
+    "exact": "the covenant with Abraham",
+    "prefix": "God established ",
+    "suffix": ", an everlasting promise"
+  }
+}
+```
+
+```json
+{
+  "audio": { "start_ms": 42000, "end_ms": 55000, "audio_ref": "acl_9f3k2m" }
+}
 ```
 
 > **Deferred — re-anchoring across study-material versions.** When a project adopts a new study-material fork, a server job should try to migrate anchors: exact-quote match (disambiguated by prefix/suffix) in the new version's node text → rewrite offsets + version ref; no match → mark the anchor stale but keep it displayable via the stored quote (graceful degradation, never data loss). This job isn't needed until the first study-material version adoption, so it's noted here and not designed further yet.
@@ -190,7 +261,7 @@ Teams need lists: the owner predefines some (Key Terms, Discussions), translator
 - A **list** = an asset (`content_type = 'journal'`). Because it's an asset, its **name is acl content** — text and/or audio per languoid, so an oral-first community can name their list in their own language — and it gets revision chains and comments for free.
 - **An entry** = an asset (`content_type = 'journal_entry'`), regardless of how it's connected. Membership = `asset_link` role **`member_of`** (with `order_index` for playlist-style ordering; concurrent offline reorders are last-write-wins per link row — worst case a shuffled order, never lost data). One entry can be in many lists. Anchoring (`anchor` links to library content) is fully orthogonal: anchored-and-filed, anchored-only, filed-only are all just different link combinations on the same stable asset.
 - **The filing UX:** when contributing in context (highlighting library text, pausing audio), the composer offers "add to journal list…" — optional. Entries can also be created directly from a list, or filed into lists later from anywhere they're displayed; all of it is just link rows.
-- **Template-declared lists:** a template's structure JSONB can carry `lists: [{id, name, kind}]`; the project-link RPC instantiates them as `journal` asset rows (with a `template_list_id` backref — this is how the engine finds e.g. the Key Terms list for revision pinning). **User-created lists** are the same rows minus the backref. Owners can also create lists directly, no template involved.
+- **Template-declared lists:** a template's structure JSONB can carry `lists: [{id, name, kind}]`; the `set_project_workflow` RPC instantiates them as `journal` asset rows (with a `template_list_id` backref — this is how the engine finds e.g. the Key Terms list for revision pinning). **User-created lists** are the same rows minus the backref. Owners can also create lists directly, no template involved.
 - **Project-wide reach falls out of sync:** lists and entries are project-bucket rows, so the full journal is on every device. Contextual surfacing ("this term appears here") comes from `applies_to` links — with a named future enhancement: **server-suggested links** that match term text against passage source text and create inactive `applies_to` links for the team to confirm.
 
 **The journal.** The union of all non-quest-bound contributions — entries and the lists organizing them — is the project's **journal**: quests are the work; the journal is the accumulated team knowledge that travels across all of it. Lists are views into the journal. *(Naming note: "library" was considered and deliberately reserved — it better fits the study content itself, e.g. a future rename of the study material template to `library_template`. The FIA content is the library you read; the journal is what the team writes.)*
@@ -202,7 +273,7 @@ New schema surface for all of this: two content_types (`journal`, `journal_entry
 A submitted quest version moves through the project's configured phases.
 
 - **`quest.submission_state`** — enum: `draft`|`submitted`|`in_review`|`rework`|`withdrawn`|`approved_final` (default `draft`). Only one quest per pericope per project can be in a non-draft/non-withdrawn state at a time (partial unique constraint). Combining partial work and partial rework into a single submittable version relies on **quest remixing**. (Q8)
-- **`review_submission`** — One per quest-version review pass. Fields: quest ref, workflow_link ref, current_phase_id, status (`pending`|`in_review`|`rework`|`completed`|`withdrawn`), submitted_by, submitted_at. Reused across rework cycles.
+- **`review_submission`** — One per quest-version review pass. Fields: quest ref, project ref, current_phase_id, status (`pending`|`in_review`|`rework`|`completed`|`withdrawn`), submitted_by, submitted_at. Reused across rework cycles.
 - **`review_decision`** — One group's verdict at one phase. Fields: submission ref, phase_id, group_slot_id, group ref, decision (`approved`|`rejected`|`withdrawn`), decided_by, decided_at, active flag. A free-text *reason* is not a column — it's a comment-asset linked to the decision (below).
 
 **Comments and flags are assets, not dedicated tables.** Consistent with the everything-is-an-asset principle, the former `review_comment` and `review_asset_flag` tables collapse into `asset` + `asset_link`:
@@ -233,6 +304,175 @@ The backend mechanism is **event sourcing with server-owned projections** — no
 - **Determinism bonus:** because state is a pure function of the log + template, projections can be rebuilt (bug fixes, audits) by replaying `review_event`.
 
 **Offline caveat:** transition RPCs require connectivity. Offline devices can stage intents locally (votes, comments, flags), but state only advances when the server processes them — consistent with the existing conflict-avoidance posture.
+
+---
+
+## Schema reference
+
+All tables, grouped by the five layers above. `pk` = primary key, `FK` = foreign key. **String refs** (`phase_id`, `group_slot_id`, `*_node_id`) point into JSONB and are validated in RPCs, not by DB constraints (C4).
+
+### Layer 1 — workflow template
+
+```
+workflow_template
+├── id (UUID, pk)
+├── name, description, slug
+├── structure (JSONB — phases + group slots)
+├── creator_id (FK → profile, null = system)
+├── copied_from_template_id (FK → workflow_template, provenance)
+├── shared, active
+├── created_at, last_updated
+```
+
+> No `project_count` — popularity is a query over `project` grouped by `workflow_template_id`, not a stored counter (see the content doc's *Fields that must stay off the template row*).
+
+```
+workflow_template_revision   (audit only, not synced)
+├── id (UUID, pk)
+├── workflow_template_id (FK → workflow_template)
+├── structure (JSONB snapshot)
+├── actions (JSONB — structured diff)
+├── saved_by (FK → profile), saved_at
+```
+
+### Layer 2 — project configuration
+
+```
+project   (columns added)
+├── workflow_template_id (FK → workflow_template, nullable; the project's single workflow)
+└── workflow_frozen (bool — blocks re-pointing mid-review)
+```
+
+```
+project_group
+├── id (UUID, pk)
+├── project_id (FK → project)
+├── name
+├── role_type (translator | reviewer | coordinator)
+├── description, active
+```
+
+```
+project_group_member
+├── id (UUID, pk)
+├── project_group_id (FK → project_group)
+├── profile_id (FK → profile)
+├── active
+```
+
+```
+project_phase_group          (maps abstract slots → real groups)
+├── id (UUID, pk)
+├── project_id (FK → project)
+├── phase_id (string ref → workflow JSONB)
+├── group_slot_id (string ref → workflow JSONB)
+├── project_group_id (FK → project_group)
+```
+
+### Layer 3 — work
+
+```
+assignment
+├── id (UUID, pk)
+├── project_id (FK → project)
+├── target_type (quest | asset | template_node)
+├── target_id (UUID or opaque node id, per target_type)        ⚠ range repr TBD
+├── assignee_type (profile | group)
+├── assignee_id (FK → profile | project_group, per assignee_type)
+├── assignment_type (translation | rework | review | approve)
+├── status (pending | in_progress | completed | cancelled)
+├── completion_rule (any | all, default any)
+├── assigner (FK → profile)
+├── notes
+```
+
+```
+assignment_item_completion
+├── id (UUID, pk)
+├── assignment_id (FK → assignment)
+├── node_id (string ref — the completed node)
+├── completed_at
+```
+
+```
+asset_link                   (one polymorphic linking table)
+├── id (UUID, pk)
+├── asset_id (FK → asset)
+├── target_type (quest | asset | template_node | study_material_node | review_decision | review_submission)
+├── target_id (UUID or opaque node id, per target_type)
+├── link_role (anchor | comment_on | reply_to | revision_of | flag | references | applies_to | member_of | …)   ⚠ role set governed (open Q)
+├── project_id (FK → project, denormalized for RLS/sync)
+├── anchor_data (JSONB, nullable — see AnchorData)
+├── order_index, active, created_at
+```
+
+### Layer 4 — review
+
+```
+quest   (column added)
+└── submission_state (draft | submitted | in_review | rework | withdrawn | approved_final, default draft)
+```
+
+```
+review_submission            (one per quest-version review pass)
+├── id (UUID, pk)
+├── quest_id (FK → quest)
+├── project_id (FK → project)
+├── current_phase_id (string ref → workflow JSONB)   — projection
+├── status (pending | in_review | rework | completed | withdrawn)   — projection
+├── submitted_by (FK → profile), submitted_at
+```
+
+```
+review_decision              (one group's verdict at one phase)
+├── id (UUID, pk)
+├── review_submission_id (FK → review_submission)
+├── phase_id (string ref), group_slot_id (string ref)
+├── project_group_id (FK → project_group)
+├── decision (approved | rejected | withdrawn)
+├── decided_by (FK → profile), decided_at
+├── active
+```
+
+### Layer 5 — review engine
+
+```
+review_event                 (append-only log; server-only, never synced)
+├── id (UUID, pk)
+├── event_type (submitted | approved | rejected | withdrawn | cascade_invalidated |
+│               comment_added | asset_flagged | flag_resolved | rework_assigned |
+│               rework_completed | phase_advanced | workflow_completed | submission_withdrawn)
+├── actor (FK → profile)
+├── target_type, target_id
+├── payload (JSONB)
+├── project_id (FK → project)
+├── created_at
+```
+
+### Columns added to existing tables
+
+- `project.workflow_template_id`, `project.workflow_frozen`
+- `quest.submission_state`
+- `asset.content_type` — new enum values `journal` | `journal_entry` | `comment` (alongside existing `source` | `translation` | `transcription`)
+
+### Template-declared lists (provisional)
+
+A template's `structure` JSONB can carry a `lists` block, instantiated as `journal` asset rows when the workflow is set on a project (`set_project_workflow`). Shape is provisional:
+
+```json
+"lists": [
+  { "id": "lstKeyTerms", "name": "Key Terms", "kind": "key_terms" },
+  { "id": "lstDiscuss1", "name": "Discussions", "kind": "discussion" }
+]
+```
+
+### TBD / not-yet-pinned
+
+- **Assignment range targeting** — an assignment can target a *range* of nodes, but the column shape isn't fixed (single `target_id` + span-end? a child range table?). Tied to the content-template node-id scheme, which ships first (A2).
+- **`link_role` value set** — the list above is the current *working set*; admitting a new role is an open question (a new role must change engine/UI behavior, else reuse one). `target_id`'s type also varies by `target_type` (UUID for real rows, opaque string for JSONB nodes).
+- **`lists` block** — provisional shape, and *which* template owns it (content vs workflow) isn't settled; the instantiation hook is currently named `set_project_workflow`.
+- **Reviewable-node field** — lives on the *content* template, not here; exact shape is a content-template-side detail (A4).
+- **Node-id ref formats** — `phase_id` / `group_slot_id` are this doc's own nanoids, but `target_id` / `node_id` refs into content and study-material structures mirror whatever those docs land on.
 
 ---
 
@@ -337,7 +577,7 @@ Extends the existing `notification` table with new `target_table_name` values: `
 
 ## Sync (PowerSync)
 
-- **Synced to devices:** `workflow_template` (active only), `project_workflow_link`, `project_phase_group`, `project_group`, `project_group_member`, `assignment`, `assignment_item_completion`, `asset_link`, `review_submission`, `review_decision`. (Comments and flags sync as ordinary `asset` + `asset_link` rows; `asset_link.project_id` drives bucketing.)
+- **Synced to devices:** `workflow_template` (active only), `project_phase_group`, `project_group`, `project_group_member`, `assignment`, `assignment_item_completion`, `asset_link`, `review_submission`, `review_decision`. (Comments and flags sync as ordinary `asset` + `asset_link` rows; `asset_link.project_id` drives bucketing.)
 - **Server-only (not synced):** `review_event`, `workflow_template_revision`.
 - **Conflict avoidance:** all review-state transitions go through server-only RPCs that append to `review_event` and recompute projections (`review_submission.status`, `current_phase_id`, `quest.submission_state`); clients never write these. Decisions and comment-assets are append-only.
 
@@ -346,7 +586,7 @@ Extends the existing `notification` table with new `target_table_name` values: `
 ## Migration & rollout
 
 1. **Additive only** — existing tables unchanged except `quest.submission_state` (default `draft`) and new `asset.content_type` enum values.
-2. **Opt-in** — projects without a `project_workflow_link` keep vote-based approval.
+2. **Opt-in** — projects with no workflow (`project.workflow_template_id` is null) keep vote-based approval.
 3. **System templates** ship together: a CBBT *process* template with the ETEN review phases, and an FIA *study material* template with the 6 understanding steps.
 4. **No auto-adoption** — existing FIA projects get a workflow only if the coordinator opts in.
 5. **Website config first**, app review surfaces second.
@@ -388,9 +628,9 @@ Decisions in this doc rest on the following assumptions. If one turns out to be 
 - **A3 — Study material lives in the LangQuest DB** as its own structured template with stable node ids (not fetched from an external API). *(Supports: anchoring contributions to study-material nodes; resolving the FIA-content-storage question.)*
 - **A4 — Reviewability is declared on the content template.** Content-template nodes carry a "reviewable" indicator, and only reviewable nodes/quests enter the workflow. *(Supports: not putting content-template compatibility on the workflow template.)*
 - **A5 — The quest remixing feature will exist.** Partial-work and partial-rework merging is handled by remixing rather than by this system. *(Supports: `quest.submission_state` lifecycle; per-asset rework flow.)*
-- **A6 — One workflow per project.** `project_workflow_link` is unique on `project_id`; a project runs a single review process at a time. *(Supports: phase/group mapping; submission routing.)*
+- **A6 — One workflow per project.** `project.workflow_template_id` holds the project's single workflow (one column, one workflow by construction); a project runs a single review process at a time. *(Supports: phase/group mapping; submission routing.)*
 - **A7 — Template editing is website-only; clients are read-only on templates.** No server-side draft state; drafts live in the browser. *(Supports: fork-always immutability; the app/website split.)*
-- **A8 — Review is opt-in and additive.** Projects without a `project_workflow_link` keep vote-based approval unchanged. *(Supports: the migration/rollout plan.)*
+- **A8 — Review is opt-in and additive.** Projects with no workflow (`project.workflow_template_id` null) keep vote-based approval unchanged. *(Supports: the migration/rollout plan.)*
 - **A9 — Review-state transitions can require connectivity.** Submitting, deciding, and advancing happen via server RPCs; offline devices stage intents but state only moves when the server processes them. *(Supports: the event-sourced engine; projection-only state columns.)*
 - **A10 — Application-level integrity is acceptable for links.** `asset_link` targets (like template node ids today) are validated in RPCs, not by FKs; orphan checks run server-side. *(Supports: the polymorphic `asset_link` design.)*
 - **A11 — No content within a project needs to be hidden from project members.** Review feedback must cross roles, key terms must span pericopes, and the governance model favors transparency. *(Supports: project-wide visibility; no per-asset ACL; visibility == project sync bucket. If a partner requires confidential group deliberation, revisit via a `visibility` enum on `asset_link`.)*

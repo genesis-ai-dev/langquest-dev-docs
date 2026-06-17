@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { Header, HeaderButton } from "../components/Header";
 import { TabBar } from "../components/TabBar";
-import { DiagramShell } from "../components/DiagramShell";
+import { DiagramShell, clearDiagramLayout } from "../components/DiagramShell";
 import { StepWalkthrough } from "../components/StepWalkthrough";
 import { SECTIONS } from "../data/databaseSchema";
 
@@ -18,10 +18,7 @@ export function DatabaseSchema() {
   }, []);
 
   const resetLayout = useCallback(() => {
-    const key = `lq-schema-react-${section.id}`;
-    try {
-      localStorage.removeItem(key);
-    } catch {}
+    clearDiagramLayout(`lq-schema-react-${section.id}`);
     // Force re-mount by toggling tab
     setTabIndex((prev) => {
       setTimeout(() => setTabIndex(prev), 0);

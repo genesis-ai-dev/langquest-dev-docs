@@ -15,6 +15,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Content Templates (beta)", hash: "#template" },
   { label: "Template Lifecycle (beta)", hash: "#lifecycle" },
   { label: "Process Templates (beta)", hash: "#workflow" },
+  { label: "Combined Schema (beta)", hash: "#combined" },
 ];
 
 export function Header({
@@ -37,7 +38,7 @@ export function Header({
       <div className="flex items-center justify-between px-5 py-2 gap-3">
         <div>
           <h1 className="text-[.95rem] font-semibold">{title}</h1>
-          <p className="font-mono text-[.52rem] text-txt-dim uppercase tracking-[.12em] mt-px">
+          <p className="font-mono text-[.6rem] text-txt-dim uppercase tracking-[.12em] mt-px">
             {subtitle}
           </p>
         </div>
@@ -77,7 +78,7 @@ function NavButton({
     <button
       type="button"
       onClick={onClick}
-      className={`font-mono text-[.6rem] px-2.5 py-1 rounded-md border cursor-pointer transition-all whitespace-nowrap ${
+      className={`font-mono text-[.7rem] px-2.5 py-1 rounded-md border cursor-pointer transition-all whitespace-nowrap ${
         active
           ? "border-accent-purple text-accent-purple bg-accent-purple/10"
           : "border-transparent text-txt-dim hover:text-txt hover:bg-card"
@@ -101,7 +102,7 @@ export function HeaderButton({
     <button
       type="button"
       onClick={onClick}
-      className={`font-mono text-[.65rem] px-3 py-1.5 rounded-lg border cursor-pointer transition-all ${
+      className={`font-mono text-[.72rem] px-3 py-1.5 rounded-lg border cursor-pointer transition-all ${
         active
           ? "border-accent-pink text-accent-pink bg-accent-pink/4"
           : "border-border bg-card text-txt-muted hover:border-border-hi hover:text-txt"
