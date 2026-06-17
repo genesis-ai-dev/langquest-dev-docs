@@ -25,6 +25,8 @@ export interface DiagramNodeDef {
   y: number;
   w: number;
   fields: SchemaNodeData["fields"];
+  /** Optional accent color (CSS color value) used to group tables by system. */
+  tint?: string;
 }
 
 export interface DiagramEdgeDef {
@@ -33,6 +35,43 @@ export interface DiagramEdgeDef {
   to: string;
   toField: string;
   dash?: boolean;
+  /** Optional absolute X (flow coords) for the edge's vertical segment. Drag the segment in the diagram to adjust. */
+  midX?: number;
+}
+
+/** Stable key identifying an edge for layout persistence / copy output. */
+export function edgeKeyOf(e: DiagramEdgeDef): string {
+  return `${e.from}.${e.fromField}->${e.to}.${e.toField}`;
+}
+
+/** Saved per-edge vertical-segment positions for a diagram. */
+export function loadEdgeMidXs(storageKey: string): Record<string, number> {
+  try {
+    const raw = localStorage.getItem(`${storageKey}:edges`);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveEdgeMidX(storageKey: string, edgeKey: string, midX: number | null) {
+  try {
+    const all = loadEdgeMidXs(storageKey);
+    if (midX == null) {
+      delete all[edgeKey];
+    } else {
+      all[edgeKey] = midX;
+    }
+    localStorage.setItem(`${storageKey}:edges`, JSON.stringify(all));
+  } catch {}
+}
+
+/** Clears both node positions and edge vertical-segment positions for a diagram. */
+export function clearDiagramLayout(storageKey: string) {
+  try {
+    localStorage.removeItem(storageKey);
+    localStorage.removeItem(`${storageKey}:edges`);
+  } catch {}
 }
 
 function buildNodes(
@@ -48,28 +87,41 @@ function buildNodes(
       subtitle: d.sub,
       fields: d.fields,
       highlighted: highlighted ? highlighted.includes(d.id) : true,
+      tint: d.tint,
     } satisfies SchemaNodeData,
     style: { width: d.w },
     draggable: true,
   }));
 }
 
-function buildEdges(defs: DiagramEdgeDef[]): Edge[] {
-  return defs.map((e, i) => ({
-    id: `e-${i}-${e.from}-${e.to}`,
-    source: e.from,
-    sourceHandle: `field-${e.fromField}`,
-    target: e.to,
-    targetHandle: `field-${e.toField}`,
-    type: "schema",
-    data: { dash: e.dash },
-    markerEnd: {
-      type: MarkerType.Arrow,
-      color: "var(--color-edge-dot)",
-      width: 12,
-      height: 12,
-    },
-  }));
+function buildEdges(
+  defs: DiagramEdgeDef[],
+  savedMidXs: Record<string, number>,
+  onMidXChange: (edgeKey: string, midX: number | null) => void,
+): Edge[] {
+  return defs.map((e, i) => {
+    const key = edgeKeyOf(e);
+    return {
+      id: `e-${i}-${e.from}-${e.to}`,
+      source: e.from,
+      sourceHandle: `field-${e.fromField}`,
+      target: e.to,
+      targetHandle: `field-${e.toField}`,
+      type: "schema",
+      data: {
+        dash: e.dash,
+        edgeKey: key,
+        midX: savedMidXs[key] ?? e.midX,
+        onMidXChange,
+      },
+      markerEnd: {
+        type: MarkerType.Arrow,
+        color: "var(--color-edge-dot)",
+        width: 12,
+        height: 12,
+      },
+    };
+  });
 }
 
 export function DiagramShell({
@@ -90,6 +142,13 @@ export function DiagramShell({
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
 
+  const onMidXChange = useCallback(
+    (edgeKey: string, midX: number | null) => {
+      saveEdgeMidX(storageKey, edgeKey, midX);
+    },
+    [storageKey],
+  );
+
   // Rebuild nodes/edges when section changes
   useEffect(() => {
     const saved = loadPositions(storageKey);
@@ -102,9 +161,9 @@ export function DiagramShell({
       }
     }
     setNodes(built);
-    setEdges(buildEdges(edgeDefs));
+    setEdges(buildEdges(edgeDefs, loadEdgeMidXs(storageKey), onMidXChange));
     initialised.current = true;
-  }, [storageKey, nodeDefs, edgeDefs, setNodes, setEdges]); // deliberately exclude highlightedNodes to avoid position reset
+  }, [storageKey, nodeDefs, edgeDefs, setNodes, setEdges, onMidXChange]); // deliberately exclude highlightedNodes to avoid position reset
 
   // Update highlighting without resetting positions
   useEffect(() => {
@@ -132,7 +191,7 @@ export function DiagramShell({
   return (
     <div className="flex-1 min-h-0 relative">
       {diagramTitle && (
-        <div className="absolute left-1/2 -translate-x-1/2 top-1.5 font-mono text-[9px] text-txt-dim uppercase tracking-[.14em] pointer-events-none z-10 opacity-60">
+        <div className="absolute left-1/2 -translate-x-1/2 top-1.5 font-mono text-[11px] text-txt-dim uppercase tracking-[.14em] pointer-events-none z-10 opacity-70">
           {diagramTitle}
         </div>
       )}

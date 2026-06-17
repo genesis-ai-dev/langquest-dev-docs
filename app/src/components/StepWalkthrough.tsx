@@ -103,23 +103,23 @@ export function StepWalkthrough({
       </div>
 
       <div
-        className="font-mono text-[.6rem] font-semibold uppercase tracking-[.1em]"
+        className="font-mono text-[.68rem] font-semibold uppercase tracking-[.1em]"
         style={{ color: resolvedColor }}
       >
         {resolvedPhase}
       </div>
       <div
-        className="text-[.95rem] font-semibold [&_span]:font-semibold"
+        className="text-[1.05rem] font-semibold [&_span]:font-semibold"
         dangerouslySetInnerHTML={{ __html: step.title }}
       />
       <div
-        className="text-[.82rem] text-txt-muted leading-relaxed [&_code]:font-mono [&_code]:text-[.72rem] [&_code]:bg-code-bg [&_code]:px-[5px] [&_code]:py-px [&_code]:rounded-[3px] [&_code]:text-accent-pink [&_strong]:text-txt [&_strong]:font-semibold"
+        className="text-[.92rem] text-txt-muted leading-relaxed [&_code]:font-mono [&_code]:text-[.8rem] [&_code]:bg-code-bg [&_code]:px-[5px] [&_code]:py-px [&_code]:rounded-[3px] [&_code]:text-accent-pink [&_strong]:text-txt [&_strong]:font-semibold"
         dangerouslySetInnerHTML={{ __html: step.description }}
       />
 
       {/* Navigation */}
       <div className="flex items-center justify-between mt-0.5">
-        <span className="font-mono text-[.6rem] text-txt-dim">
+        <span className="font-mono text-[.68rem] text-txt-dim">
           Step {currentStep + 1} of {steps.length}
         </span>
         <div className="flex gap-2">

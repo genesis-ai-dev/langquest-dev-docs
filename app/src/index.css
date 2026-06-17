@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
 @import "tailwindcss";
 
 @theme {
@@ -6,9 +6,9 @@
   --color-card: #10101a;
   --color-border: #2c2c4a;
   --color-border-hi: #40406a;
-  --color-txt: #dcdcf0;
-  --color-txt-muted: #9898b8;
-  --color-txt-dim: #606088;
+  --color-txt: #e8e8f8;
+  --color-txt-muted: #b4b4d4;
+  --color-txt-dim: #8e8eb4;
   --color-accent-cyan: #22d3ee;
   --color-accent-purple: #a78bfa;
   --color-accent-green: #34d399;
@@ -22,7 +22,7 @@
   --color-edge-dot: #a78bfa;
 
   --font-sans: "DM Sans", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  --font-mono: "IBM Plex Mono", monospace;
 }
 
 .light {
@@ -30,9 +30,9 @@
   --color-card: #ffffff;
   --color-border: #b8b8d0;
   --color-border-hi: #8888aa;
-  --color-txt: #181830;
-  --color-txt-muted: #484870;
-  --color-txt-dim: #606080;
+  --color-txt: #14142c;
+  --color-txt-muted: #3a3a60;
+  --color-txt-dim: #4e4e72;
   --color-panel: #ffffffee;
   --color-code-bg: #0000000a;
   --color-edge-fk: #7c3aed40;

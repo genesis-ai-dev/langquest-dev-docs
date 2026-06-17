@@ -10,11 +10,11 @@ const DIA_TEMPLATE_TREE = `<div class="font-mono text-[.6rem] leading-[1.9] text
 <b class="text-accent-green">template.structure (Bible example)</b><br/>
 &nbsp;&nbsp;<b class="text-accent-pink">📖 root</b> <span class="text-txt-dim text-[.5rem]">id=root · node_type=root</span><br/>
 &nbsp;&nbsp;&nbsp;&nbsp;└ <b class="text-accent-green">Luke</b> <span class="text-txt-dim text-[.5rem]">id=x7kQ3mP9nR · node_type=book · linkable_type=quest</span><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├ <b class="text-accent-green">Chapter 1</b> <span class="text-txt-dim text-[.5rem]">id=Rj2wLp8vKe · node_type=chapter · linkable_type=quest · <b class="text-accent-amber">is_download_unit</b></span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├ <b class="text-accent-green">Chapter 1</b> <span class="text-txt-dim text-[.5rem]">id=Rj2wLp8vKe · node_type=chapter · linkable_type=quest · <b class="text-accent-amber">contains_assets</b></span><br/>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;├ <span class="text-accent-cyan">1:1</span> <span class="text-txt-dim text-[.5rem]">id=mN4tYq6hXa · linkable_type=asset · allows_spanning</span><br/>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;├ <span class="text-accent-cyan">1:2</span> <span class="text-txt-dim text-[.5rem]">id=bF9cWs3dZv · linkable_type=asset</span><br/>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;└ <span class="text-accent-cyan">1:3</span> <span class="text-txt-dim text-[.5rem]">id=pL7eUn2gTk · linkable_type=asset</span><br/>
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ <b class="text-accent-green">Chapter 2</b> <span class="text-txt-dim text-[.5rem]">id=hD5aVm1fQw · node_type=chapter · <b class="text-accent-amber">is_download_unit</b></span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ <b class="text-accent-green">Chapter 2</b> <span class="text-txt-dim text-[.5rem]">id=hD5aVm1fQw · node_type=chapter · <b class="text-accent-amber">contains_assets</b></span><br/>
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ <span class="text-accent-cyan">2:1</span> <span class="text-txt-dim text-[.5rem]">id=cJ8rXo4iSy · linkable_type=asset</span><br/>
 <span class="text-txt-dim text-[.5rem]">Hierarchy, order, depth are intrinsic to JSON nesting. Node IDs are opaque nanoid(10).</span></div>`;
 
@@ -68,9 +68,6 @@ export const NODES: DiagramNodeDef[] = [
       }),
       F("description", {
         hint: "Optional description for the template.",
-      }),
-      F("project_count", {
-        hint: "Maintained by trigger on project_template_link. Used for popularity sorting.",
       }),
       F("creator_id"),
     ],
