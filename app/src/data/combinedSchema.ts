@@ -32,6 +32,23 @@ export const NODES: DiagramNodeDef[] = [
     fields: [
       F("id", { pk: true }),
       F("name"),
+      F("template_id", {
+        fk: { node: "n-template", field: "id" },
+        hint: "The project's single content template. Re-pointed on fork adoption — quest/asset node refs stay stable because they reach the template via project_id. (Collapsed from the former project_template_link.)",
+      }),
+      F("template_frozen", {
+        hint: "Blocks re-pointing the content template. Set on legacy backfilled projects.",
+      }),
+      F("download_profiles", {
+        hint: "This project's enabled download profiles (moved here from the former link table).",
+      }),
+      F("workflow_template_id", {
+        fk: { node: "n-wf-template", field: "id" },
+        hint: "The project's single review workflow (nullable — null = vote-based approval). Adoption mutates this pointer. (Collapsed from the former project_workflow_link.)",
+      }),
+      F("workflow_frozen", {
+        hint: "Blocks re-pointing the workflow mid-review.",
+      }),
       F("creator_id"),
       F("private"),
     ],
@@ -67,12 +84,8 @@ export const NODES: DiagramNodeDef[] = [
     fields: [
       F("id", { pk: true }),
       F("project_id", { fk: { node: "n-project", field: "id" } }),
-      F("template_link_id", {
-        fk: { node: "n-pbl", field: "id" },
-        hint: "FK to project_template_link — identifies the content template tree this quest belongs to.",
-      }),
       F("template_node_id", {
-        hint: "Opaque node ID into template.structure. Multiple quests sharing the same node = versions.",
+        hint: "Opaque node ID into template.structure (reach the template via project_id → project.template_id). Multiple quests sharing the same node = versions.",
       }),
       F("submission_state", {
         hint: "From the process system: draft | submitted | in_review | rework | withdrawn | approved_final. Server-computed projection of the review_event log.",
@@ -91,12 +104,8 @@ export const NODES: DiagramNodeDef[] = [
     fields: [
       F("id", { pk: true }),
       F("project_id", { fk: { node: "n-project", field: "id" } }),
-      F("template_link_id", {
-        fk: { node: "n-pbl", field: "id" },
-        hint: "FK to project_template_link.",
-      }),
       F("template_node_id", {
-        hint: "Content-template node this contribution is for (start of range if spanning). Loose assets leave this null.",
+        hint: "Content-template node this contribution is for (start of range if spanning); reach the template via project_id. Loose assets leave this null.",
       }),
       F("span_end_template_node_id", {
         hint: "If set, asset spans template_node_id through this node.",
@@ -155,29 +164,6 @@ export const NODES: DiagramNodeDef[] = [
     ],
   },
   {
-    id: "n-pbl",
-    title: "project_template_link",
-    sub: "1 per project",
-    tint: CONTENT,
-    x: -737,
-    y: -697,
-    w: 230,
-    fields: [
-      F("id", { pk: true }),
-      F("project_id", {
-        fk: { node: "n-project", field: "id" },
-        hint: "UNIQUE — one content template per project. Multiple bodies of content compose as subtrees of the single template.",
-      }),
-      F("template_id", {
-        fk: { node: "n-template", field: "id" },
-        hint: "Re-pointed on fork adoption — quest/asset references stay stable because they target the link, not the template.",
-      }),
-      F("active"),
-      F("frozen", { hint: "Blocks re-pointing. Set on legacy backfilled projects." }),
-      F("download_profiles"),
-    ],
-  },
-  {
     id: "n-template-rev",
     title: "template_revision",
     sub: "audit only · server-only",
@@ -229,7 +215,7 @@ export const NODES: DiagramNodeDef[] = [
   {
     id: "n-pll",
     title: "project_library_link",
-    sub: "1 per project",
+    sub: "M:N junction",
     tint: LIBRARY,
     x: -784,
     y: -95,
@@ -238,7 +224,7 @@ export const NODES: DiagramNodeDef[] = [
       F("id", { pk: true }),
       F("project_id", {
         fk: { node: "n-project", field: "id" },
-        hint: "UNIQUE — starts as one library per project, mirroring the other two link tables. Relaxing later = dropping an index.",
+        hint: "Not unique — a project can use several libraries, and a library can serve many projects. A genuine many-to-many junction (unlike content/workflow, which collapsed onto project).",
       }),
       F("library_template_id", { fk: { node: "n-lib-template", field: "id" } }),
       F("frozen"),
@@ -338,26 +324,6 @@ export const NODES: DiagramNodeDef[] = [
     ],
   },
   {
-    id: "n-pwl",
-    title: "project_workflow_link",
-    sub: "1 per project",
-    tint: PROCESS,
-    x: 2475,
-    y: -737,
-    w: 230,
-    fields: [
-      F("id", { pk: true }),
-      F("project_id", {
-        fk: { node: "n-project", field: "id" },
-        hint: "UNIQUE — one review workflow per project. Adoption mutates the pointer; the link row is permanent.",
-      }),
-      F("workflow_template_id", { fk: { node: "n-wf-template", field: "id" } }),
-      F("frozen", { hint: "Blocks re-pointing mid-review." }),
-      F("active"),
-      F("created_at"),
-    ],
-  },
-  {
     id: "n-ppg",
     title: "project_phase_group",
     sub: "slot → real group mapping",
@@ -367,7 +333,7 @@ export const NODES: DiagramNodeDef[] = [
     w: 230,
     fields: [
       F("id", { pk: true }),
-      F("workflow_link_id", { fk: { node: "n-pwl", field: "id" } }),
+      F("project_id", { fk: { node: "n-project", field: "id" } }),
       F("phase_id", { hint: "Opaque string ID into workflow_template.structure.phases[]." }),
       F("group_slot_id", { hint: "Opaque string ID into the phase's group_slots[]." }),
       F("group_id", { fk: { node: "n-group", field: "id" } }),
@@ -486,7 +452,7 @@ export const NODES: DiagramNodeDef[] = [
     fields: [
       F("id", { pk: true }),
       F("quest_id", { fk: { node: "n-quest", field: "id" } }),
-      F("workflow_link_id", { fk: { node: "n-pwl", field: "id" } }),
+      F("project_id", { fk: { node: "n-project", field: "id" } }),
       F("current_phase_id", {
         hint: "Opaque string ID into the workflow JSONB. Server-computed projection — never client-written.",
       }),
@@ -548,13 +514,10 @@ export const EDGES: DiagramEdgeDef[] = [
   { from: "n-qal", fromField: "asset_id", to: "n-asset", toField: "id", midX: 531 },
 
   // Content template system
-  { from: "n-pbl", fromField: "project_id", to: "n-project", toField: "id" },
-  { from: "n-pbl", fromField: "template_id", to: "n-template", toField: "id" },
+  { from: "n-project", fromField: "template_id", to: "n-template", toField: "id" },
   { from: "n-template", fromField: "source_languoid_id", to: "n-languoid", toField: "id", midX: -428 },
   { from: "n-template-rev", fromField: "template_id", to: "n-template", toField: "id", dash: true },
-  { from: "n-quest", fromField: "template_link_id", to: "n-pbl", toField: "id", dash: true },
-  { from: "n-asset", fromField: "template_link_id", to: "n-pbl", toField: "id", dash: true },
-  // String refs into the content structure JSONB
+  // String refs into the content structure JSONB (reached via project.template_id)
   { from: "n-quest", fromField: "template_node_id", to: "n-template", toField: "structure", dash: true },
   { from: "n-asset", fromField: "template_node_id", to: "n-template", toField: "structure", dash: true },
 
@@ -569,10 +532,9 @@ export const EDGES: DiagramEdgeDef[] = [
   { from: "n-lib-content", fromField: "node_id", to: "n-lib-template", toField: "structure", dash: true },
 
   // Process template system
-  { from: "n-pwl", fromField: "project_id", to: "n-project", toField: "id", midX: 2807 },
-  { from: "n-pwl", fromField: "workflow_template_id", to: "n-wf-template", toField: "id" },
+  { from: "n-project", fromField: "workflow_template_id", to: "n-wf-template", toField: "id" },
   { from: "n-wf-rev", fromField: "workflow_template_id", to: "n-wf-template", toField: "id", dash: true, midX: 2067 },
-  { from: "n-ppg", fromField: "workflow_link_id", to: "n-pwl", toField: "id", midX: 2011 },
+  { from: "n-ppg", fromField: "project_id", to: "n-project", toField: "id" },
   { from: "n-ppg", fromField: "group_id", to: "n-group", toField: "id", midX: 1623 },
   // String refs into the workflow structure JSONB
   { from: "n-ppg", fromField: "phase_id", to: "n-wf-template", toField: "structure", dash: true, midX: 2008 },
@@ -586,7 +548,7 @@ export const EDGES: DiagramEdgeDef[] = [
   // Cross-system: anchors target library content / structure nodes
   { from: "n-asset-link", fromField: "target_id", to: "n-lib-content", toField: "id", dash: true },
   { from: "n-submission", fromField: "quest_id", to: "n-quest", toField: "id", midX: 978 },
-  { from: "n-submission", fromField: "workflow_link_id", to: "n-pwl", toField: "id", midX: 1589 },
+  { from: "n-submission", fromField: "project_id", to: "n-project", toField: "id", midX: 1589 },
   { from: "n-decision", fromField: "submission_id", to: "n-submission", toField: "id" },
   { from: "n-decision", fromField: "group_id", to: "n-group", toField: "id", midX: 1637 },
   { from: "n-event", fromField: "project_id", to: "n-project", toField: "id", dash: true, midX: 181 },
@@ -596,19 +558,19 @@ export const STEPS: Step[] = [
   {
     title: "Three template systems, one data spine",
     description:
-      "All three template systems follow the same architecture: a single JSONB <code>structure</code> blob per template row, fork-always immutable publishing, website-only editing, and a one-per-project link table. They differ in <em>what they declare</em>: the <b style=\"color:var(--color-accent-green)\">content template</b> declares what gets translated, the <b style=\"color:var(--color-accent-cyan)\">library template</b> declares what the team reads to prepare, and the <b style=\"color:var(--color-accent-pink)\">process template</b> declares how finished work is validated. <em>Dashed edges</em> are application-validated string references (opaque node IDs into JSONB) — no FK possible.",
+      "All three template systems follow the same architecture: a single JSONB <code>structure</code> blob per template row, fork-always immutable publishing, and website-only editing. They attach to a project differently: <b style=\"color:var(--color-accent-green)\">content</b> and <b style=\"color:var(--color-accent-pink)\">workflow</b> are a single FK column on <code>project</code> (one per project), while the <b style=\"color:var(--color-accent-cyan)\">library</b> uses a many-to-many junction. They differ in <em>what they declare</em>: the content template declares what gets translated, the library template declares what the team reads to prepare, and the process template declares how finished work is validated. <em>Dashed edges</em> are application-validated string references (opaque node IDs into JSONB) — no FK possible.",
   },
   {
     title: "Existing data spine",
     description:
-      "The tables every system hangs off: <code>project</code> is the workspace and the sync-bucketing unit; <code>quest</code> and <code>asset</code> carry the actual work. The template systems add columns here rather than replacing anything — <code>quest.template_node_id</code>, <code>asset.span_end_template_node_id</code>, <code>quest.submission_state</code>, and new <code>asset.content_type</code> values.",
+      "The tables every system hangs off: <code>project</code> is the workspace and the sync-bucketing unit; <code>quest</code> and <code>asset</code> carry the actual work. The template systems add columns here rather than replacing anything — <code>project.template_id</code> / <code>template_frozen</code> / <code>workflow_template_id</code> / <code>workflow_frozen</code> / <code>download_profiles</code> (the content and workflow link tables, collapsed onto <code>project</code>), plus <code>quest.template_node_id</code>, <code>asset.span_end_template_node_id</code>, <code>quest.submission_state</code>, and new <code>asset.content_type</code> values.",
     highlightNodes: ["n-project", "n-quest", "n-asset", "n-qal", "n-profile", "n-languoid"],
   },
   {
     title: "Content template system",
     description:
-      "Declares <em>what gets translated</em>: a JSONB tree (Bible books → chapters → verses, FIA pericopes, …) with opaque nanoid(10) node IDs. Quests and assets reference nodes by ID, and reference the stable <code>project_template_link</code> row — so forking a template and re-pointing the link never breaks references. One template per project (unique on <code>project_id</code>); multiple bodies of content compose as subtrees. The materialized layer is user-created quests and assets.",
-    highlightNodes: ["n-template", "n-pbl", "n-template-rev", "n-project", "n-quest", "n-asset"],
+      "Declares <em>what gets translated</em>: a JSONB tree (Bible books → chapters → verses, FIA pericopes, …) with opaque nanoid(10) node IDs. Each project points at one template via <code>project.template_id</code>; quests and assets reference nodes by opaque ID and reach the template through their project — so forking a template and re-pointing <code>project.template_id</code> never breaks references. Multiple bodies of content compose as subtrees of the single template. The materialized layer is user-created quests and assets.",
+    highlightNodes: ["n-template", "n-template-rev", "n-project", "n-quest", "n-asset"],
   },
   {
     title: "Library template system",
@@ -621,7 +583,7 @@ export const STEPS: Step[] = [
     description:
       "Declares <em>how finished work is validated</em>: ordered review phases with group slots and signoff rules in <code>workflow_template.structure</code>. <code>project_phase_group</code> maps abstract slots to real <code>project_group</code> teams. A submitted quest gets a <code>review_submission</code>; each group's verdict is a <code>review_decision</code>. State columns are projections — the append-only, server-only <code>review_event</code> log is the source of truth, and a template-driven reducer recomputes projections inside transition RPCs.",
     highlightNodes: [
-      "n-wf-template", "n-wf-rev", "n-pwl", "n-ppg", "n-group", "n-group-member",
+      "n-wf-template", "n-wf-rev", "n-ppg", "n-group", "n-group-member",
       "n-submission", "n-decision", "n-event", "n-project", "n-quest", "n-profile",
     ],
   },
