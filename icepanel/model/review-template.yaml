@@ -1,0 +1,253 @@
+# yaml-language-server: $schema=https://api.icepanel.io/v1/schemas/LandscapeImportData
+#
+# Future: Process / review template system (proposal).
+# Source: template-design-documents/review-template-system.md
+# All objects status: future
+
+namespace: langquest-review-future
+
+modelObjects:
+  # --- Actors ---
+  - id: MCyH7yr43mCon1gaj367
+    name: Reviewer
+    type: actor
+    parentId: loeSy4EM1pCrs7xIld3t
+    caption: Reviewer
+    description: Future — reviews submitted quest versions in workflow phases (group-based signoff).
+    status: future
+
+  - id: MCoguFElhlM8ZYGlpHmu
+    name: Editor
+    type: actor
+    parentId: loeSy4EM1pCrs7xIld3t
+    caption: Editor / Coordinator
+    description: Configures workflow templates, maps group slots, creates assignments; may also edit on website today.
+    status: live
+
+  - id: rEgmG1AAr22S0cA7ZqAe
+    name: LangQuest Website
+    type: system
+    parentId: loeSy4EM1pCrs7xIld3t
+    caption: Website
+    description: Future review config surface — publish/fork workflow templates, map project_phase_group, create assignments, audit trail. (Also existing product config.)
+    status: future
+
+  # --- Website apps (config) ---
+  - id: CYKzk8L0UhwJhPLO7ERo
+    name: Workflow Template Editor
+    type: app
+    parentId: rEgmG1AAr22S0cA7ZqAe
+    caption: WF Template Editor
+    description: Future — website IndexedDB drafts; publish/fork workflow_template JSONB (phases + group_slots). RPCs publish/fork/save metadata.
+    status: future
+
+  - id: 42Hx4L0n2NhXLJv1Ma5q
+    name: Project Workflow Config
+    type: app
+    parentId: rEgmG1AAr22S0cA7ZqAe
+    caption: Project WF Config
+    description: Future — set project.workflow_template_id, map project_phase_group, manage project_group membership, create assignments.
+    status: future
+
+  # --- Mobile apps (work) ---
+  - id: RmscYCdcIkYZCgOkx45c
+    name: Review Work UI
+    type: app
+    parentId: yrFCjmD5KQrtynJlw3Wq
+    caption: Review Work UI
+    description: Future — submit quest, write review_decision / comment assets / flags via PowerSync ps_crud. Never writes review state projections directly.
+    status: future
+
+  # --- Supabase review data plane ---
+  - id: 6Sdm02SwzTzhES963I2B
+    name: workflow_template
+    type: store
+    parentId: 4tKe7evzSbWc93zHb6sE
+    caption: workflow_template
+    description: Future — JSONB phases/group_slots; fork-always immutable published rows; string phase_id/group_slot_id refs (C1–C4).
+    status: future
+
+  - id: PTijnBpOxImxdf9q9mLt
+    name: assignment
+    type: store
+    parentId: 4tKe7evzSbWc93zHb6sE
+    caption: assignment
+    description: Future — one mechanism for translation/rework/review/approve; drives progress (C6–C7). Synced to devices.
+    status: future
+
+  - id: JOJpxkPRK0g3F7Pc8jAZ
+    name: project_group
+    type: store
+    parentId: 4tKe7evzSbWc93zHb6sE
+    caption: project_group
+    description: Future — first-class groups for assignment + review; project_phase_group maps template slots → real groups (C5).
+    status: future
+
+  - id: D0gXYXdxmQVRAU3PL50f
+    name: asset_link
+    type: store
+    parentId: 4tKe7evzSbWc93zHb6sE
+    caption: asset_link
+    description: Future — polymorphic links (anchor/comment/flag/…) to quests, template nodes, decisions, etc. (C8, C13).
+    status: future
+
+  - id: eQ5zCdcl8owh0nVRjWT6
+    name: review_submission
+    type: store
+    parentId: 4tKe7evzSbWc93zHb6sE
+    caption: review_submission
+    description: Future — one pass of a quest version through the workflow; status/current_phase_id are projections.
+    status: future
+
+  - id: XKKOOi4VFUoTR0J0sRkZ
+    name: review_decision
+    type: store
+    parentId: 4tKe7evzSbWc93zHb6sE
+    caption: review_decision
+    description: Future — client-written approve/reject/withdraw for a phase group slot; synced via PowerSync.
+    status: future
+
+  - id: WhOIyixslq1OfFtfBcZH
+    name: review_event
+    type: store
+    parentId: 4tKe7evzSbWc93zHb6sE
+    caption: review_event
+    description: Future — append-only event log; server-only; NEVER synced. Source of truth for review (C10).
+    status: future
+
+  - id: TnxIGv1eZyh1WwLLJ7n5
+    name: Review Reducer
+    type: app
+    parentId: 4tKe7evzSbWc93zHb6sE
+    caption: Review Reducer
+    description: Future — DB trigger; template-driven; evaluates guards and recomputes projections in same txn as client writes (C14).
+    status: future
+
+modelConnections:
+  - id: cX9hYJ7DV7dZ2J9zLqcF
+    name: Reviews in app
+    direction: outgoing
+    originId: MCyH7yr43mCon1gaj367
+    targetId: yrFCjmD5KQrtynJlw3Wq
+    description: Reviewer uses Mobile Review Work UI.
+    status: future
+
+  - id: S2GdGvN2zHLWerg7IkZm
+    name: Configures workflows
+    direction: outgoing
+    originId: MCoguFElhlM8ZYGlpHmu
+    targetId: rEgmG1AAr22S0cA7ZqAe
+    description: Coordinator uses website to publish templates and map groups.
+    status: future
+
+  - id: nOq2iCqHHnuTLcmZ6ylG
+    name: Publishes workflow_template
+    direction: outgoing
+    originId: CYKzk8L0UhwJhPLO7ERo
+    targetId: 6Sdm02SwzTzhES963I2B
+    description: Fork-always publish of JSONB structure.
+    status: future
+
+  - id: NdnsNELt9YwLaqttWpRS
+    name: Maps groups / assignments
+    direction: outgoing
+    originId: 42Hx4L0n2NhXLJv1Ma5q
+    targetId: JOJpxkPRK0g3F7Pc8jAZ
+    description: project_phase_group + assignment creation.
+    status: future
+
+  - id: rz7zvsx7oqXpVj0qrkd2
+    name: Creates assignments
+    direction: outgoing
+    originId: 42Hx4L0n2NhXLJv1Ma5q
+    targetId: PTijnBpOxImxdf9q9mLt
+    description: Website creates translation/review/approve assignments.
+    status: future
+
+  - id: sBaMsIlJc5c5Q56YfSvG
+    name: Completes assignments
+    direction: outgoing
+    originId: RmscYCdcIkYZCgOkx45c
+    targetId: PTijnBpOxImxdf9q9mLt
+    description: App records work/completion offline-first.
+    status: future
+
+  - id: zqocViWrq9gtuJXZ9clm
+    name: Writes decisions
+    direction: outgoing
+    originId: RmscYCdcIkYZCgOkx45c
+    targetId: XKKOOi4VFUoTR0J0sRkZ
+    description: Client writes review_decision rows (not projections).
+    status: future
+
+  - id: ituPNgBK9amMckqVzjp9
+    name: Syncs client rows
+    direction: bidirectional
+    originId: PyBcqIY7MlG3oTwv7eOT
+    targetId: PTijnBpOxImxdf9q9mLt
+    description: PowerSync syncs assignments/decisions/assets — not review_event.
+    status: future
+
+  - id: 0A0r3O1an5bC6DfekHDw
+    name: Syncs decisions
+    direction: bidirectional
+    originId: PyBcqIY7MlG3oTwv7eOT
+    targetId: XKKOOi4VFUoTR0J0sRkZ
+    description: Decisions sync; reducer runs server-side on insert.
+    status: future
+
+  - id: QaM2hXTNoIiCCv3fCKK0
+    name: Appends events (server)
+    direction: outgoing
+    originId: TnxIGv1eZyh1WwLLJ7n5
+    targetId: WhOIyixslq1OfFtfBcZH
+    description: Reducer writes review_event; never synced to devices.
+    status: future
+
+  - id: A4LZZxd1Eub3rCpr2qeG
+    name: Projects submission state
+    direction: outgoing
+    originId: TnxIGv1eZyh1WwLLJ7n5
+    targetId: eQ5zCdcl8owh0nVRjWT6
+    description: Recomputes review_submission + quest.submission_state from events + template guards.
+    status: future
+
+  - id: RYeg8YWPhNosIUhOBYYl
+    name: Reads template guards
+    direction: outgoing
+    originId: TnxIGv1eZyh1WwLLJ7n5
+    targetId: 6Sdm02SwzTzhES963I2B
+    description: Signoff rules / phase order from workflow_template.structure.
+    status: future
+
+  - id: FfZVR1fVcmfKQkrySKwG
+    name: Triggers reducer
+    direction: outgoing
+    originId: XKKOOi4VFUoTR0J0sRkZ
+    targetId: TnxIGv1eZyh1WwLLJ7n5
+    description: Decision insert fires template-driven trigger in same transaction.
+    status: future
+
+  - id: oKOJfc3GBMV7B69QeQlW
+    name: Stored in Postgres
+    direction: outgoing
+    originId: 6Sdm02SwzTzhES963I2B
+    targetId: CAWEetEiIxml0lgXhziA
+    description: Template rows live in Postgres.
+    status: future
+
+  - id: Mr7r8Px2O33hQHjnHaT2
+    name: Stored in Postgres
+    direction: outgoing
+    originId: WhOIyixslq1OfFtfBcZH
+    targetId: CAWEetEiIxml0lgXhziA
+    description: Event log is server-only Postgres.
+    status: future
+
+  - id: V2rdqBS3HUiJM2uPnoxZ
+    name: Links contributions
+    direction: outgoing
+    originId: RmscYCdcIkYZCgOkx45c
+    targetId: D0gXYXdxmQVRAU3PL50f
+    description: Comments/flags/anchors via asset_link.
+    status: future

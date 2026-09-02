@@ -295,7 +295,7 @@ export const NODES: DiagramNodeDef[] = [
       F("slug"),
       F("name"),
       F("structure", {
-        hint: "JSONB: ordered phases, each with group_slots and a signoff_rule (any_one | unanimous | quorum). Preparation steps live in the library template, not here.",
+        hint: "JSONB: ordered phases, each with group_slots and a signoff_rule (any_one | unanimous | quorum). Signoff resolves at two levels — each group_slot has its own signoff_rule (over its members), and the phase has one (over its group verdicts). Preparation steps live in the library template, not here.",
       }),
       F("copied_from_template_id", {
         fk: { node: "n-wf-template", field: "id" },
@@ -317,8 +317,7 @@ export const NODES: DiagramNodeDef[] = [
     fields: [
       F("id", { pk: true }),
       F("workflow_template_id", { fk: { node: "n-wf-template", field: "id" } }),
-      F("structure"),
-      F("actions"),
+      F("actions", { hint: "Structured diff only. No structure snapshot — the immutable published workflow_template row already holds that structure, so snapshotting it would just duplicate the fork row." }),
       F("saved_by"),
       F("saved_at"),
     ],
@@ -464,7 +463,7 @@ export const NODES: DiagramNodeDef[] = [
   {
     id: "n-decision",
     title: "review_decision",
-    sub: "one group's verdict at one phase",
+    sub: "one member's vote at one phase (within their group)",
     tint: PROCESS,
     x: 1675,
     y: -1043,
@@ -476,7 +475,7 @@ export const NODES: DiagramNodeDef[] = [
       F("group_slot_id"),
       F("group_id", { fk: { node: "n-group", field: "id" } }),
       F("decision", { hint: "approved | rejected | withdrawn. Free-text reason = a linked comment-asset, not a column." }),
-      F("decided_by"),
+      F("decided_by", { hint: "The voting member. The group's verdict (members resolved by the slot signoff_rule) and the phase outcome (group verdicts resolved by the phase signoff_rule) are computed by the reducer, not stored." }),
       F("decided_at"),
       F("active"),
     ],
@@ -581,7 +580,7 @@ export const STEPS: Step[] = [
   {
     title: "Process template system",
     description:
-      "Declares <em>how finished work is validated</em>: ordered review phases with group slots and signoff rules in <code>workflow_template.structure</code>. <code>project_phase_group</code> maps abstract slots to real <code>project_group</code> teams. A submitted quest gets a <code>review_submission</code>; each group's verdict is a <code>review_decision</code>. State columns are projections — the append-only, server-only <code>review_event</code> log is the source of truth, and a template-driven reducer recomputes projections inside transition RPCs.",
+      "Declares <em>how finished work is validated</em>: ordered review phases with group slots and signoff rules in <code>workflow_template.structure</code>. <code>project_phase_group</code> maps abstract slots to real <code>project_group</code> teams. A submitted quest gets a <code>review_submission</code>; each member's vote is a <code>review_decision</code>, and the reducer computes group verdicts (slot signoff over members) then phase outcomes (phase signoff over group verdicts). State columns are projections — the append-only, server-only <code>review_event</code> log is the source of truth, and a template-driven reducer (a DB trigger, fired when a synced vote row lands) recomputes projections.",
     highlightNodes: [
       "n-wf-template", "n-wf-rev", "n-ppg", "n-group", "n-group-member",
       "n-submission", "n-decision", "n-event", "n-project", "n-quest", "n-profile",

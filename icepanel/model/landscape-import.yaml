@@ -1,0 +1,267 @@
+# yaml-language-server: $schema=https://api.icepanel.io/v1/schemas/LandscapeImportData
+#
+# Source of truth for LangQuest IcePanel model objects + connections.
+# Synced via: npm run sync (see src/sync.ts)
+# Note: IcePanel requires 20-character IDs.
+
+namespace: langquest-git
+
+modelObjects:
+  - id: loeSy4EM1pCrs7xIld3t
+    name: Default domain
+    type: domain
+
+  - id: BX0rCo6AUc8jJYQLqZtD
+    name: Translator
+    type: actor
+    parentId: loeSy4EM1pCrs7xIld3t
+    caption: Translator
+    description: Person using the LangQuest mobile app to contribute translations.
+    status: live
+
+  - id: yrFCjmD5KQrtynJlw3Wq
+    name: LangQuest Mobile
+    type: system
+    parentId: loeSy4EM1pCrs7xIld3t
+    caption: Mobile
+    description: Expo / React Native offline-first mobile app (ships today).
+    status: live
+
+  - id: PyBcqIY7MlG3oTwv7eOT
+    name: PowerSync
+    type: system
+    parentId: loeSy4EM1pCrs7xIld3t
+    caption: PowerSync
+    description: External sync service. Mobile embeds the PowerSync SDK; sync auth uses the Supabase JWT.
+    external: true
+    status: live
+
+  - id: 4tKe7evzSbWc93zHb6sE
+    name: Supabase
+    type: system
+    parentId: loeSy4EM1pCrs7xIld3t
+    caption: Supabase
+    description: External backend — Auth, Postgres, and APIs.
+    external: true
+    status: live
+
+  - id: rEgmG1AAr22S0cA7ZqAe
+    name: LangQuest Website
+    type: system
+    parentId: loeSy4EM1pCrs7xIld3t
+    caption: Website
+    description: Website left out of v0 modeling scope.
+    status: removed
+
+  # --- LangQuest Mobile internals ---
+
+  - id: Rj923Bhcm6St1gNqxQoP
+    name: Mobile Client
+    type: app
+    parentId: yrFCjmD5KQrtynJlw3Wq
+    caption: Mobile Client
+    description: Expo app shell — auth UI, AuthProvider, and PowerSync System orchestration.
+    status: live
+
+  - id: k66TcWJ7pJkE7VikI93m
+    name: SignInView
+    type: component
+    parentId: Rj923Bhcm6St1gNqxQoP
+    caption: SignInView
+    description: Email/password sign-in screen (`views/SignInView.tsx`). Requires online connectivity.
+    status: live
+
+  - id: NLRWtlyUdiKpFUplKw67
+    name: AuthProvider
+    type: component
+    parentId: Rj923Bhcm6St1gNqxQoP
+    caption: AuthProvider
+    description: React auth context (`contexts/AuthContext.tsx`). Listens to Supabase `onAuthStateChange` and calls `system.init()` on SIGNED_IN.
+    status: live
+
+  - id: rRiPXhhYK0KHCojJHIZ3
+    name: SupabaseConnector
+    type: component
+    parentId: Rj923Bhcm6St1gNqxQoP
+    caption: SupabaseConnector
+    description: Supabase client + PowerSync backend connector (`db/supabase/SupabaseConnector.ts`). `login()` → `signInWithPassword`; `fetchCredentials()` supplies JWT to PowerSync.
+    status: live
+
+  - id: DdoE0IAprqWKL1vdE4Fz
+    name: PowerSync System
+    type: component
+    parentId: Rj923Bhcm6St1gNqxQoP
+    caption: System
+    description: Local DB + sync orchestration (`db/powersync/system.ts`). `init()` then background `powersync.connect(supabaseConnector)`.
+    status: live
+
+  - id: GObuq9SiRJrV9qzOZPxg
+    name: PowerSync SDK
+    type: app
+    parentId: yrFCjmD5KQrtynJlw3Wq
+    caption: PowerSync SDK
+    description: In-app PowerSync client library. Connects using Supabase access_token from SupabaseConnector.
+    status: live
+
+  - id: 92SWeBtk93clohljFBO2
+    name: SQLite
+    type: store
+    parentId: yrFCjmD5KQrtynJlw3Wq
+    caption: SQLite
+    description: On-device database managed by the PowerSync SDK.
+    status: live
+
+  - id: fk5UgbyexgepAC4Xgsst
+    name: AsyncStorage
+    type: store
+    parentId: yrFCjmD5KQrtynJlw3Wq
+    caption: AsyncStorage
+    description: Persists Supabase auth session (`sb-*-auth-token`) for the JS client.
+    status: live
+
+  # --- Supabase internals ---
+
+  - id: ZnOB4NU01kp7LkHO78CG
+    name: Supabase Auth
+    type: app
+    parentId: 4tKe7evzSbWc93zHb6sE
+    caption: Auth
+    description: Email/password auth. Returns session + JWT used by PowerSync client auth.
+    status: live
+
+  - id: CAWEetEiIxml0lgXhziA
+    name: Postgres
+    type: store
+    parentId: 4tKe7evzSbWc93zHb6sE
+    caption: Postgres
+    description: Primary LangQuest database. Synced to devices via PowerSync.
+    status: live
+
+modelConnections:
+  - id: I4xcopOnu1Yqer3sk1nD
+    name: Uses
+    direction: outgoing
+    originId: BX0rCo6AUc8jJYQLqZtD
+    targetId: yrFCjmD5KQrtynJlw3Wq
+    description: Translator uses the LangQuest mobile app.
+    status: live
+
+  - id: NNt5aS9IFAwMTks1bs3D
+    name: Submits email/password
+    direction: outgoing
+    originId: BX0rCo6AUc8jJYQLqZtD
+    targetId: k66TcWJ7pJkE7VikI93m
+    description: Translator enters credentials on SignInView (online required).
+    status: live
+
+  - id: jKlbPnRRMQaeckmZG3WI
+    name: login()
+    direction: outgoing
+    originId: k66TcWJ7pJkE7VikI93m
+    targetId: rRiPXhhYK0KHCojJHIZ3
+    description: SignInView calls `supabaseConnector.login(email, password)`.
+    status: live
+
+  - id: FD0VubYfKkyBH6ZQ07Qc
+    name: signInWithPassword
+    direction: outgoing
+    originId: rRiPXhhYK0KHCojJHIZ3
+    targetId: ZnOB4NU01kp7LkHO78CG
+    description: Supabase JS client authenticates with email/password.
+    status: live
+
+  - id: YApJigxkM6KSwW6idtiv
+    name: Returns session + JWT
+    direction: outgoing
+    originId: ZnOB4NU01kp7LkHO78CG
+    targetId: rRiPXhhYK0KHCojJHIZ3
+    description: Auth returns session including access_token used later for PowerSync.
+    status: live
+
+  - id: ZkBtiRloK5G9q7ihjcVf
+    name: Persists session
+    direction: outgoing
+    originId: rRiPXhhYK0KHCojJHIZ3
+    targetId: fk5UgbyexgepAC4Xgsst
+    description: Supabase client auth storage writes session to AsyncStorage.
+    status: live
+
+  - id: JOS0lSdU06K7Lz4wIjNu
+    name: onAuthStateChange SIGNED_IN
+    direction: outgoing
+    originId: ZnOB4NU01kp7LkHO78CG
+    targetId: NLRWtlyUdiKpFUplKw67
+    description: AuthProvider reacts to SIGNED_IN (also updates connector session).
+    status: live
+
+  - id: h5KPJaSlTwginadads4P
+    name: system.init()
+    direction: outgoing
+    originId: NLRWtlyUdiKpFUplKw67
+    targetId: DdoE0IAprqWKL1vdE4Fz
+    description: AuthProvider initializes the PowerSync System after sign-in.
+    status: live
+
+  - id: UC40gSM8x4XzqwLBSGn1
+    name: powersync.connect(connector)
+    direction: outgoing
+    originId: DdoE0IAprqWKL1vdE4Fz
+    targetId: GObuq9SiRJrV9qzOZPxg
+    description: Background connect after local init; connector supplies credentials.
+    status: live
+
+  - id: 1eNWWnmVn6oCt3MwK4FZ
+    name: fetchCredentials() JWT
+    direction: outgoing
+    originId: GObuq9SiRJrV9qzOZPxg
+    targetId: rRiPXhhYK0KHCojJHIZ3
+    description: PowerSync SDK asks SupabaseConnector for endpoint + access_token.
+    status: live
+
+  - id: SK14zqOjt7CKVHnckFmw
+    name: Syncs via SDK
+    direction: bidirectional
+    originId: GObuq9SiRJrV9qzOZPxg
+    targetId: PyBcqIY7MlG3oTwv7eOT
+    description: PowerSync SDK connects to PowerSync service with Supabase JWT.
+    status: live
+
+  - id: Fi9PavlYVOTpllyBDtTu
+    name: Reads/writes local DB
+    direction: bidirectional
+    originId: GObuq9SiRJrV9qzOZPxg
+    targetId: 92SWeBtk93clohljFBO2
+    description: PowerSync SDK manages on-device SQLite.
+    status: live
+
+  - id: z49aFYLkfAT3JsLlVRfa
+    name: Replicates
+    direction: bidirectional
+    originId: PyBcqIY7MlG3oTwv7eOT
+    targetId: 4tKe7evzSbWc93zHb6sE
+    description: PowerSync replicates between client SQLite and Supabase Postgres.
+    status: live
+
+  - id: ebwsXubW8AwNFy5PH2vE
+    name: Authenticates
+    direction: outgoing
+    originId: yrFCjmD5KQrtynJlw3Wq
+    targetId: ZnOB4NU01kp7LkHO78CG
+    description: High-level system link — mobile authenticates with Supabase Auth.
+    status: live
+
+  - id: 8C19e8Rf33BKSSwriKSu
+    name: Manages via API
+    direction: outgoing
+    originId: rEgmG1AAr22S0cA7ZqAe
+    targetId: 4tKe7evzSbWc93zHb6sE
+    description: Website path (out of v0 scope).
+    status: removed
+
+  - id: Hhc7QIQVbJ5QizhwZy02
+    name: Syncs data
+    direction: bidirectional
+    originId: yrFCjmD5KQrtynJlw3Wq
+    targetId: 4tKe7evzSbWc93zHb6sE
+    description: Replaced by PowerSync path; kept removed for history.
+    status: removed

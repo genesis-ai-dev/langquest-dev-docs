@@ -43,11 +43,11 @@ LangQuest has no formal review today. Translators record, the community votes, n
 | C7 | Progress follows the work, via assignments | Objective passage progress is **inferred from individual assignment progress**, because objective measures struggle across versions and review stages. (Q5 clarification) |
 | C8 | All language contributions are assets | Journal entries (discussions, key terms, drawings), journal lists, and review comments are assets (`journal_entry`/`journal`/`comment`). Dedicated content tables (e.g. a `review_comment` table) are avoided; categorization comes from list membership, not type subtypes. |
 | C9 | Contributions are cross-version | They bind to study-material steps and the project, not to a specific quest version, so every version can use them. (Q7) |
-| C10 | `review_event` is the source of truth (event sourcing) | Append-only log, server-only, never synced. State columns (`submission_state`, `status`, `current_phase_id`) are projections recomputed from it by transition RPCs. Doubles as the full audit history. (Q1) |
+| C10 | `review_event` is the source of truth (event sourcing) | Append-only log, server-only, never synced. State columns (`submission_state`, `status`, `current_phase_id`) are projections recomputed from it by a server-side trigger (the reducer). Doubles as the full audit history. (Q1) |
 | C11 | Additive, opt-in rollout | Existing tables unchanged except `quest.submission_state` and new `asset.content_type` values. Projects without a workflow keep vote-based approval. |
 | C12 | Depends on quest remixing | Partial-work and partial-rework scenarios are resolved by the remix feature (compose a new version from good + fixed parts). (Q8) |
 | C13 | One polymorphic `asset_link` table | Assets point at quests, template nodes, study-material nodes, decisions, and other assets through a single (target_type, target_id, link_role) table with denormalized `project_id` — not a link table per relationship. |
-| C14 | Review transitions are server-only RPCs | Clients append facts (decisions, comment-assets, flags); a template-driven reducer evaluates guards and recomputes projections in one transaction. No client ever writes review state. |
+| C14 | Review state is reduced server-side by a DB trigger | Clients only **write rows** (decisions, comment-assets, flags), synced offline-first via PowerSync (`ps_crud`); a template-driven reducer in a trigger evaluates guards and recomputes projections in the same transaction. No client ever writes review state, and no client calls a transition RPC. |
 
 ---
 
@@ -58,7 +58,7 @@ The system has five layers. The first two are configured on the website; the las
 ### 1. Workflow template layer
 
 - **`workflow_template`** — One JSONB row. Fields: id, name, description, slug, creator_id (null = system), `structure` (JSONB), copied_from_template_id (provenance), shared, active, created_at, last_updated. **No `project_count`** — popularity is computed by query over `project` (grouped by `workflow_template_id`), not stored (a cached counter would churn the synced row; see the [content template doc](./content-template-system.md) *Fields that must stay off the template row*).
-- **`workflow_template_revision`** — Audit only, not synced. Fields: template ref, structure snapshot, actions (structured diff), saved_by, saved_at.
+- **`workflow_template_revision`** — Audit only, not synced. Fields: template ref, actions (structured diff), saved_by, saved_at. **No structure snapshot** — every publish already inserts a new immutable `workflow_template` row holding that `structure`, so snapshotting it here would just duplicate the fork row; only the diff and authorship are unique to the revision.
 
 **`structure` JSONB shape:**
 
@@ -71,8 +71,8 @@ type WorkflowStructure = {
 type WorkflowPhase = {
   id: string;               // nanoid(10), stable, immutable
   name: string;
-  order_index: number;
-  signoff_rule: 'any_one' | 'unanimous' | 'quorum';
+  description?: string;
+  signoff_rule: 'any_one' | 'unanimous' | 'quorum';  // across this phase's groups
   quorum_threshold?: number;  // fraction of mapped groups, auto-adjusting denominator (e.g. 2/3)
   group_slots: WorkflowGroupSlot[];
   deleted?: boolean;
@@ -82,6 +82,8 @@ type WorkflowGroupSlot = {
   id: string;               // nanoid(10), stable, immutable
   name: string;
   description?: string;
+  signoff_rule: 'any_one' | 'unanimous' | 'quorum';  // how this one group reaches its own verdict
+  quorum_threshold?: number;  // fraction of the group's members
   deleted?: boolean;
 };
 ```
@@ -95,49 +97,67 @@ type WorkflowGroupSlot = {
     {
       "id": "Ph1teamXk9",
       "name": "Translation Team Check",
-      "order_index": 0,
       "signoff_rule": "unanimous",
       "group_slots": [
-        { "id": "gsTeam0001", "name": "Translation Team", "description": "The drafting team checks its own work first." }
+        { 
+          "id": "gsTeam0001", 
+          "name": "Translation Team", 
+          "description": "The drafting team checks its own work first.", 
+          "signoff_rule": "unanimous" 
+        }
       ]
     },
     {
       "id": "Ph2commQz4",
       "name": "Community Review",
-      "order_index": 1,
       "signoff_rule": "quorum",
       "quorum_threshold": 0.66,
       "group_slots": [
-        { "id": "gsCommA111", "name": "Community Group A" },
-        { "id": "gsCommB222", "name": "Community Group B" },
-        { "id": "gsCommC333", "name": "Community Group C" }
-      ]
-    },
-    {
-      "id": "Ph3churLp7",
-      "name": "Church Leadership",
-      "order_index": 2,
-      "signoff_rule": "any_one",
-      "group_slots": [
-        { "id": "gsElders01", "name": "Church Elders" }
+        { "id": "gsCommA111", "name": "Community Group A", "signoff_rule": "quorum", "quorum_threshold": 0.5 },
+        { "id": "gsCommB222", "name": "Community Group B", "signoff_rule": "quorum", "quorum_threshold": 0.5 },
+        { "id": "gsCommC333", "name": "Community Group C", "signoff_rule": "any_one" }
       ]
     },
     {
       "id": "Ph4boardMm",
       "name": "Blessing Board",
-      "order_index": 3,
       "signoff_rule": "unanimous",
       "group_slots": [
-        { "id": "gsBoard001", "name": "Blessing Board" }
+        { "id": "gsBoard001", "name": "Blessing Board", "signoff_rule": "unanimous" }
       ]
     }
   ]
 }
 ```
 
-Phase 2 advances once **2 of its 3** community groups approve (`quorum`, denominator = mapped groups, auto-adjusting); phases 1 and 4 need **all** their groups; phase 3 needs **any one**. Each `id` is an opaque nanoid the project's `project_phase_group` rows map to real groups, and that review decisions reference — never branched on by name. (Removed phases keep a `deleted: true` tombstone so historical decisions still resolve, per C4.)
+**Signoff now resolves at two levels.** Each `group_slot` carries its own `signoff_rule` — how that single group reaches its verdict, over its members (e.g. Community Group A approves once a `quorum` of half its members agree; Group C needs `any_one`). The `phase` then carries a `signoff_rule` for how many of its groups must approve to advance. So Phase 2 advances once **2 of its 3** community groups are approved (`quorum` 0.66, denominator = mapped groups, auto-adjusting), where each of those groups became "approved" by its own member-level rule; phases 1 and 4 need **all** their groups (each internally unanimous); phase 3 needs **any one**. Each `id` is an opaque nanoid the project's `project_phase_group` rows map to real groups, and that review decisions reference — never branched on by name. (Removed phases keep a `deleted: true` tombstone so historical decisions still resolve, per C4.)
 
 Preparation steps and passage structure are **not** in here — they live in the study material template and the content/project template respectively. The process template references neither directly; the three are tied together at the work/assignment layer.
+
+**Revision diff (`actions`) shape.** `workflow_template_revision.actions` stores a `TemplateDiff`, computed at publish time by walking the previous and new `structure` trees by stable node id (never by name). The same shape is shared by all three template systems:
+
+```typescript
+type DiffEntryBase = {
+  nodeId: string;     // stable nanoid of the affected node
+  nodeName: string;   // denormalized for display without resolving the tree
+};
+
+type DiffEntry =
+  | (DiffEntryBase & { type: 'add';            details: { parentId: string | null; index: number; kind?: string } })
+  | (DiffEntryBase & { type: 'remove';         details: { parentId: string | null } })
+  | (DiffEntryBase & { type: 'rename';         details: { from: string; to: string } })
+  | (DiffEntryBase & { type: 'move';           details: { fromParentId: string | null; toParentId: string | null; fromIndex: number; toIndex: number } })
+  | (DiffEntryBase & { type: 'hide';           details: { parentId: string | null } })   // sets deleted: true (tombstone)
+  | (DiffEntryBase & { type: 'unhide';         details: { parentId: string | null } })   // clears deleted: true
+  | (DiffEntryBase & { type: 'property_change'; details: { property: string; from: unknown; to: unknown } });
+
+type DiffActionType = DiffEntry['type'];
+
+type TemplateDiff = {
+  summary: Partial<Record<DiffActionType, number>>;  // counts per action type, for quick display
+  entries: DiffEntry[];
+};
+```
 
 **RPCs:** `publish_workflow_template`, `fork_workflow_template`, `save_workflow_template_metadata` — mirror the content template system.
 
@@ -187,7 +207,7 @@ Why polymorphic rather than FK-per-type:
 
 Costs, and how they're handled:
 
-- **No DB-level referential integrity** for real-row targets → integrity enforced in the write RPCs, plus periodic server-side orphan checks (same posture as `template_node_id` today).
+- **No DB-level referential integrity** for real-row targets → integrity enforced server-side (the upload write-handler / reducer trigger), plus periodic server-side orphan checks (same posture as `template_node_id` today).
 - **No FK path for RLS/sync bucketing** → `project_id` is **denormalized onto every `asset_link` row** (with `download_profiles` if needed), matching the existing closure/bucketing patterns. This also directly satisfies the rule that contributions must link to the project explicitly — they can't be project-linked through a quest (a contribution may predate any quest) or through a shared template node id (templates and study material are shared across projects).
 - **`asset_content_link` is unchanged** — it remains the asset's *payload* (text/audio per languoid). `asset_link` is about what an asset *points at*; the two concerns stay separate.
 
@@ -247,7 +267,7 @@ Key terms are **not anchored contributions**. They're a team-generated glossary:
 - **Optional outbound links:** `applies_to` → content-template nodes/ranges ("this term matters in Gen 1–3"), so opening a passage surfaces its relevant terms.
 - **Inbound links:** discussions, rationales, and translation assets `references` a key-term entry — "we rendered it this way because of glossary entry X."
 - **The glossary view** = the Key Terms list itself (template-declared, so it has a stable identity). Note: the glossary is filing-dependent — an entry someone never files isn't in it. Accepted trade for the simpler model.
-- **Key terms enter review (decided).** They're bundled with translation assets for review via **submit-time revision pinning**: when `submit_quest` runs, the engine snapshots (into the event payload) the revision ids of every Key Terms-list member `applies_to`-linked to the submitted quest's nodes or `references`-linked from its assets. Reviewers see the translation plus the exact glossary state it was built against, can comment on or flag entries like any asset, and an approved translation can't silently drift against a later-revised glossary. If a partner ever wants the glossary itself formally approved as a stage, the upgrade path is the documented wrap-in-a-template-free-quest move.
+- **Key terms enter review (decided).** They're bundled with translation assets for review via **submit-time revision pinning**: when a submitter creates the `review_submission` row and it syncs in, the reducer trigger snapshots (into the `submitted` event payload) the revision ids of every Key Terms-list member `applies_to`-linked to the submitted quest's nodes or `references`-linked from its assets. Reviewers see the translation plus the exact glossary state it was built against, can comment on or flag entries like any asset, and an approved translation can't silently drift against a later-revised glossary. If a partner ever wants the glossary itself formally approved as a stage, the upgrade path is the documented wrap-in-a-template-free-quest move.
 
 **Lists & the project journal.**
 
@@ -274,42 +294,59 @@ A submitted quest version moves through the project's configured phases.
 
 - **`quest.submission_state`** — enum: `draft`|`submitted`|`in_review`|`rework`|`withdrawn`|`approved_final` (default `draft`). Only one quest per pericope per project can be in a non-draft/non-withdrawn state at a time (partial unique constraint). Combining partial work and partial rework into a single submittable version relies on **quest remixing**. (Q8)
 - **`review_submission`** — One per quest-version review pass. Fields: quest ref, project ref, current_phase_id, status (`pending`|`in_review`|`rework`|`completed`|`withdrawn`), submitted_by, submitted_at. Reused across rework cycles.
-- **`review_decision`** — One group's verdict at one phase. Fields: submission ref, phase_id, group_slot_id, group ref, decision (`approved`|`rejected`|`withdrawn`), decided_by, decided_at, active flag. A free-text *reason* is not a column — it's a comment-asset linked to the decision (below).
+- **`review_decision`** — One **member's vote** at one phase, within their group. Fields: submission ref, phase_id, group_slot_id, group ref, decision (`approved`|`rejected`|`withdrawn`), decided_by (the voting member), decided_at, active flag. The **group's verdict** (its members' votes resolved by the slot's `signoff_rule`) and the **phase outcome** (group verdicts resolved by the phase's `signoff_rule`) are not stored here — the reducer computes both from these vote rows. A free-text *reason* is not a column — it's a comment-asset linked to the vote (below).
 
 **Comments and flags are assets, not dedicated tables.** Consistent with the everything-is-an-asset principle, the former `review_comment` and `review_asset_flag` tables collapse into `asset` + `asset_link`:
 
 - A **comment** = an asset (`content_type = 'comment'`, body/audio in `asset_content_link`) with an `asset_link` of role `comment_on` targeting a submission, decision, or asset. Threads chain via `reply_to` links between comment-assets.
 - A **rework flag** = an `asset_link` of role `flag` from a (comment-)asset explaining the problem to the flagged asset, scoped to the submission. Resolution flips the link's `active` flag (recorded by the engine as an event, so resolved_by/resolved_at live in the log).
-- The verdict itself (`review_decision`) **stays a structured row** — signoff aggregation needs typed, queryable decisions, not prose.
+- Each **vote** (`review_decision`) **stays a structured row** — two-level signoff aggregation needs typed, queryable votes, not prose.
 - **Comment visibility is project-wide (decided)** — same rule as contributions. The rework loop requires comments to cross roles (reviewer → coordinator → translator), and transparency matches the system's audit posture. Group-private deliberation, if ever needed, is the same additive `visibility`-on-`asset_link` path.
 
-**Why submission and decision are separate entities (Q9):** a phase can have several groups, and the owner chooses whether approval needs **one**, **all**, or a **quorum** of them (`signoff_rule`). One submission therefore collects many decisions, so they can't collapse into a single record.
+**Why submission and decision are separate entities (Q9):** approval resolves at two levels — a group approves when its members satisfy the slot's `signoff_rule`, and a phase advances when its groups satisfy the phase's `signoff_rule` (**one**, **all**, or a **quorum**). One submission therefore collects many member votes across groups and phases, so they can't collapse into a single record.
 
 **State columns are projections, not sources of truth.** `quest.submission_state`, `review_submission.status`, and `current_phase_id` overlap deliberately — all three are **server-computed projections of the `review_event` log** (see layer 5). `submission_state` exists on `quest` because the one-active-version-per-pericope constraint must be enforceable there; `review_submission.status` describes the current pass. Neither is ever written by clients, so they can't drift: the engine recomputes both in the same transaction that appends the event.
 
-**Phase advancement:** submission enters a phase → all mapped groups receive it → each group resolves per its signoff rule → all groups approve advances to the next phase; any group rejects sends it to rework → final phase approved sets `approved_final`. A quest cannot advance while any flag link is `active`.
+**Phase advancement:** submission enters a phase → all mapped groups receive it → members vote → each group resolves per its **slot** `signoff_rule` (over its members' votes) → the phase resolves per its **phase** `signoff_rule` (over those group verdicts): satisfied advances to the next phase; a group verdict of reject sends it to rework → final phase satisfied sets `approved_final`. A quest cannot advance while any flag link is `active`.
 
 **Withdraw cascade:** withdrawing at phase N invalidates all decisions at phases > N and returns the submission to phase N (a late concern from an early reviewer should invalidate downstream approvals).
 
 ### 5. Review engine — statechart + event-sourced projections
 
-The review flow is formally a **hierarchical statechart**, not a flat state machine: `in_review` is a superstate containing the ordered phase substates; each phase contains **parallel regions** (one per mapped group) that independently resolve; phase→phase transitions are **guarded** by the signoff predicate (`any_one` / `unanimous` / `quorum` fraction over active `review_decision` rows); withdraw-cascade is a transition with side effects on downstream substates.
+The review flow is formally a **hierarchical statechart**, not a flat state machine: `in_review` is a superstate containing the ordered phase substates; each phase contains **parallel regions** (one per mapped group); each group region resolves over its members' votes by the slot's signoff predicate, and the phase→phase transition is then **guarded** by the phase's signoff predicate (`any_one` / `unanimous` / `quorum`) over those group verdicts — two nested levels, both reading active `review_decision` rows; withdraw-cascade is a transition with side effects on downstream substates.
 
-The backend mechanism is **event sourcing with server-owned projections** — no external workflow engine:
+The backend mechanism is **event sourcing with server-owned projections**, driven by a **database trigger** — no external workflow engine, and (unlike template *editing*) no client-called transition RPCs:
 
-- **`review_event` is the log.** Append-only, never updated or deleted. Fields: event_type, actor, target_type, target_id, payload (JSON), project ref, created_at. Server-only (not synced); the website queries Postgres directly for the timeline. Event types: `submitted`, `approved`, `rejected`, `withdrawn`, `cascade_invalidated`, `comment_added`, `asset_flagged`, `flag_resolved`, `rework_assigned`, `rework_completed`, `phase_advanced`, `workflow_completed`, `submission_withdrawn`.
-- **Clients append facts; the server reduces.** Devices only ever insert intent rows (a decision, a comment-asset, a flag link) through transition RPCs. They never write `submission_state`, `status`, or `current_phase_id`.
-- **One RPC per transition** — `submit_quest`, `cast_decision`, `withdraw_decision`, `resolve_flag`, `assign_rework`, `complete_rework`, `resubmit_quest`. Each RPC, in a single transaction: (1) validates the actor and the current state, (2) evaluates the guard against the workflow JSONB (e.g. does this decision satisfy the phase's signoff rule? are any flag links still active?), (3) appends the `review_event`, (4) recomputes the projections (`review_submission.status`, `current_phase_id`, `quest.submission_state`). This mirrors the existing server-side mutation pipeline (`apply_table_mutation` + transforms), so it's an established pattern in this codebase, not new machinery.
-- **The reducer is template-driven, not hardcoded.** Phases, group slots, and signoff rules are already declared in `workflow_template.structure`; the engine is a generic interpreter of that JSONB. A new review process is a new template, never new transition code.
+- **Clients only write rows — offline-first.** A reviewer records a **vote** by inserting a `review_decision` row (a comment is an `asset` + `asset_link`; a flag is an `asset_link`). These are ordinary local writes that PowerSync queues in `ps_crud` and syncs up whenever connectivity returns — the same path as any other edit. Clients never write `submission_state`, `status`, or `current_phase_id`.
+- **A trigger reduces — not an RPC.** When a synced `review_decision` (or relevant `asset_link`) row lands in Postgres, a **trigger** runs the reducer in the same transaction: it (1) validates the row against current state, (2) re-evaluates signoff at **both levels** against the workflow JSONB and the active `review_decision` rows — first the affected group's verdict from its members' votes (slot rule), then the phase outcome from the group verdicts (phase rule), plus whether any flags are still active — (3) appends the resulting `review_event`(s), (4) recomputes the projections (`review_submission.status`, `current_phase_id`, `quest.submission_state`), and (5) on rejection, creates the rework `assignment` for the coordinator. *(This differs from the content/library templates, whose website edits go through the `apply_table_mutation` upload RPC; review reduction is trigger-driven so it fires correctly however the row arrives — including a decision synced from an offline device long after it was cast.)*
+- **What "the reducer" is.** A pure function: given the current `review_decision` rows + the workflow JSONB, it returns the next state and the events to append. It's **template-driven, not hardcoded** — phases, group slots, and signoff rules live in `workflow_template.structure`, so a new review process is a new template, never new trigger code.
+- **`review_event` is the log.** Append-only, never updated or deleted; server-only (not synced); the website queries Postgres directly for the timeline. (Event list and per-event `payload` shapes are in the *Schema reference*.)
 - **Determinism bonus:** because state is a pure function of the log + template, projections can be rebuilt (bug fixes, audits) by replaying `review_event`.
 
-**Offline caveat:** transition RPCs require connectivity. Offline devices can stage intents locally (votes, comments, flags), but state only advances when the server processes them — consistent with the existing conflict-avoidance posture.
+**Offline behavior.** Casting a **vote** works offline — it's just a local row write that syncs later. But a group verdict (and the phase outcome) depends on *other members' votes, made on other devices*, so the computed verdicts and any state change are produced server-side (by the trigger) only once the votes have synced and converged. A lone offline device can always record its own vote; it just can't finalize a group or phase by itself. State advances when the server has the facts — consistent with the existing conflict-avoidance posture.
 
 ---
 
 ## Schema reference
 
-All tables, grouped by the five layers above. `pk` = primary key, `FK` = foreign key. **String refs** (`phase_id`, `group_slot_id`, `*_node_id`) point into JSONB and are validated in RPCs, not by DB constraints (C4).
+All tables, grouped by the five layers above. `pk` = primary key, `FK` = foreign key. **String refs** (`phase_id`, `group_slot_id`, `*_node_id`) point into JSONB and are validated server-side, not by DB constraints (C4). **Enum columns** below reference the named types defined here (single source of truth):
+
+```typescript
+type SubmissionState   = 'draft' | 'submitted' | 'in_review' | 'rework' | 'withdrawn' | 'approved_final';  // quest.submission_state
+type SubmissionStatus  = 'pending' | 'in_review' | 'rework' | 'completed' | 'withdrawn';                    // review_submission.status
+type Decision          = 'approved' | 'rejected' | 'withdrawn';                                             // review_decision.decision
+type SignoffRule       = 'any_one' | 'unanimous' | 'quorum';                                                // workflow_template.structure → phases[].signoff_rule (across groups) & group_slots[].signoff_rule (within a group, over members)
+type AssignmentType    = 'translation' | 'rework' | 'review' | 'approve';                                   // assignment.assignment_type
+type AssignmentStatus  = 'pending' | 'in_progress' | 'completed' | 'cancelled';                             // assignment.status
+type CompletionRule    = 'any' | 'all';                                                                     // assignment.completion_rule
+type AssigneeType      = 'profile' | 'group';                                                               // assignment.assignee_type (also reused in ReviewEventPayload)
+type AssignmentTarget  = 'quest' | 'asset' | 'template_node';                                               // assignment.target_type
+type LinkRole          = 'anchor' | 'comment_on' | 'reply_to' | 'revision_of' | 'flag' | 'references' | 'applies_to' | 'member_of';  // asset_link.link_role
+type LinkTarget        = 'quest' | 'asset' | 'template_node' | 'study_material_node' | 'review_decision' | 'review_submission';       // asset_link.target_type
+type GroupRoleType     = 'translator' | 'reviewer' | 'coordinator';                                         // project_group.role_type
+type ContentType       = 'source' | 'translation' | 'transcription' | 'journal' | 'journal_entry' | 'comment';  // asset.content_type
+type ReviewEventType   = ReviewEventPayload['event_type'];  // review_event.event_type (13 events; derived from the payload union, Layer 5)
+```
 
 ### Layer 1 — workflow template
 
@@ -330,9 +367,9 @@ workflow_template
 workflow_template_revision   (audit only, not synced)
 ├── id (UUID, pk)
 ├── workflow_template_id (FK → workflow_template)
-├── structure (JSONB snapshot)
 ├── actions (JSONB — structured diff)
 ├── saved_by (FK → profile), saved_at
+└── (no structure snapshot — the immutable published workflow_template row already holds it)
 ```
 
 ### Layer 2 — project configuration
@@ -348,7 +385,7 @@ project_group
 ├── id (UUID, pk)
 ├── project_id (FK → project)
 ├── name
-├── role_type (translator | reviewer | coordinator)
+├── role_type (GroupRoleType)
 ├── description, active
 ```
 
@@ -375,13 +412,13 @@ project_phase_group          (maps abstract slots → real groups)
 assignment
 ├── id (UUID, pk)
 ├── project_id (FK → project)
-├── target_type (quest | asset | template_node)
+├── target_type (AssignmentTarget)
 ├── target_id (UUID or opaque node id, per target_type)        ⚠ range repr TBD
-├── assignee_type (profile | group)
+├── assignee_type (AssigneeType)
 ├── assignee_id (FK → profile | project_group, per assignee_type)
-├── assignment_type (translation | rework | review | approve)
-├── status (pending | in_progress | completed | cancelled)
-├── completion_rule (any | all, default any)
+├── assignment_type (AssignmentType)
+├── status (AssignmentStatus)
+├── completion_rule (CompletionRule, default any)
 ├── assigner (FK → profile)
 ├── notes
 ```
@@ -398,9 +435,9 @@ assignment_item_completion
 asset_link                   (one polymorphic linking table)
 ├── id (UUID, pk)
 ├── asset_id (FK → asset)
-├── target_type (quest | asset | template_node | study_material_node | review_decision | review_submission)
+├── target_type (LinkTarget)
 ├── target_id (UUID or opaque node id, per target_type)
-├── link_role (anchor | comment_on | reply_to | revision_of | flag | references | applies_to | member_of | …)   ⚠ role set governed (open Q)
+├── link_role (LinkRole)   ⚠ role set governed (open Q)
 ├── project_id (FK → project, denormalized for RLS/sync)
 ├── anchor_data (JSONB, nullable — see AnchorData)
 ├── order_index, active, created_at
@@ -410,7 +447,7 @@ asset_link                   (one polymorphic linking table)
 
 ```
 quest   (column added)
-└── submission_state (draft | submitted | in_review | rework | withdrawn | approved_final, default draft)
+└── submission_state (SubmissionState, default draft)
 ```
 
 ```
@@ -419,19 +456,21 @@ review_submission            (one per quest-version review pass)
 ├── quest_id (FK → quest)
 ├── project_id (FK → project)
 ├── current_phase_id (string ref → workflow JSONB)   — projection
-├── status (pending | in_review | rework | completed | withdrawn)   — projection
+├── status (SubmissionStatus)   — projection
 ├── submitted_by (FK → profile), submitted_at
 ```
 
 ```
-review_decision              (one group's verdict at one phase)
+review_decision              (one member's vote at one phase, within their group)
 ├── id (UUID, pk)
 ├── review_submission_id (FK → review_submission)
 ├── phase_id (string ref), group_slot_id (string ref)
 ├── project_group_id (FK → project_group)
-├── decision (approved | rejected | withdrawn)
-├── decided_by (FK → profile), decided_at
+├── decision (Decision)
+├── decided_by (FK → profile)    — the voting member
+├── decided_at
 ├── active
+└── (group verdict + phase outcome are computed by the reducer, not stored)
 ```
 
 ### Layer 5 — review engine
@@ -439,21 +478,38 @@ review_decision              (one group's verdict at one phase)
 ```
 review_event                 (append-only log; server-only, never synced)
 ├── id (UUID, pk)
-├── event_type (submitted | approved | rejected | withdrawn | cascade_invalidated |
-│               comment_added | asset_flagged | flag_resolved | rework_assigned |
-│               rework_completed | phase_advanced | workflow_completed | submission_withdrawn)
+├── event_type (ReviewEventType)
 ├── actor (FK → profile)
-├── target_type, target_id
-├── payload (JSONB)
+├── target_type, target_id     — finest-grained entity the event concerns
+├── payload (JSONB — ReviewEventPayload, discriminated on event_type)
 ├── project_id (FK → project)
 ├── created_at
+```
+
+**`payload` shape.** A discriminated union keyed on `event_type`. Convention: every payload restates `submission_id` (the review spine) so the reducer can locate the submission without consulting `target_type`; `target_type`/`target_id` point at the finest entity the event concerns. `approved`/`rejected` are **computed group verdicts** (not individual member votes — those live only in `review_decision`); for them `actor` is the member whose vote completed the group's signoff.
+
+```typescript
+type ReviewEventPayload =
+  | { event_type: 'submitted';            submission_id: string; quest_id: string; entry_phase_id: string; pinned_revisions: string[] }   // key-term entry revision ids frozen at submit time
+  | { event_type: 'approved';             submission_id: string; phase_id: string; group_slot_id: string; group_id: string; decision_ids: string[] }   // computed group verdict; the member votes that produced it
+  | { event_type: 'rejected';             submission_id: string; phase_id: string; group_slot_id: string; group_id: string; decision_ids: string[]; comment_asset_id: string | null }   // computed group verdict; reason comment, if any
+  | { event_type: 'withdrawn';            submission_id: string; decision_id: string; phase_id: string; group_slot_id: string }            // a member withdrew their vote (may un-resolve the group verdict)
+  | { event_type: 'cascade_invalidated';  submission_id: string; from_phase_id: string; invalidated_decision_ids: string[] }
+  | { event_type: 'comment_added';        submission_id: string; comment_asset_id: string; on_target_type: 'review_submission' | 'review_decision' | 'asset'; on_target_id: string; reply_to_asset_id: string | null }
+  | { event_type: 'asset_flagged';        submission_id: string; flag_link_id: string; flagged_asset_id: string; comment_asset_id: string }   // the explaining comment-asset
+  | { event_type: 'flag_resolved';        submission_id: string; flag_link_id: string }
+  | { event_type: 'rework_assigned';      submission_id: string; assignment_id: string; assignee_type: AssigneeType; assignee_id: string }
+  | { event_type: 'rework_completed';     submission_id: string; assignment_id: string }
+  | { event_type: 'phase_advanced';       submission_id: string; from_phase_id: string | null; to_phase_id: string }
+  | { event_type: 'workflow_completed';   submission_id: string; quest_id: string; final_phase_id: string }
+  | { event_type: 'submission_withdrawn'; submission_id: string; at_phase_id: string };                                                   // whole submission withdrawn by submitter
 ```
 
 ### Columns added to existing tables
 
 - `project.workflow_template_id`, `project.workflow_frozen`
 - `quest.submission_state`
-- `asset.content_type` — new enum values `journal` | `journal_entry` | `comment` (alongside existing `source` | `translation` | `transcription`)
+- `asset.content_type` (`ContentType`) — new values `journal` | `journal_entry` | `comment` (alongside existing `source` | `translation` | `transcription`)
 
 ### Template-declared lists (provisional)
 
@@ -579,7 +635,7 @@ Extends the existing `notification` table with new `target_table_name` values: `
 
 - **Synced to devices:** `workflow_template` (active only), `project_phase_group`, `project_group`, `project_group_member`, `assignment`, `assignment_item_completion`, `asset_link`, `review_submission`, `review_decision`. (Comments and flags sync as ordinary `asset` + `asset_link` rows; `asset_link.project_id` drives bucketing.)
 - **Server-only (not synced):** `review_event`, `workflow_template_revision`.
-- **Conflict avoidance:** all review-state transitions go through server-only RPCs that append to `review_event` and recompute projections (`review_submission.status`, `current_phase_id`, `quest.submission_state`); clients never write these. Decisions and comment-assets are append-only.
+- **Conflict avoidance:** all review-state changes are computed **server-side**. Clients only write `review_decision` / `asset_link` rows (synced via `ps_crud`); a **DB trigger** appends to `review_event` and recomputes the projections (`review_submission.status`, `current_phase_id`, `quest.submission_state`); clients never write these. Decisions and comment-assets are append-only.
 
 ---
 
@@ -605,10 +661,10 @@ These adjust the original RFC based on answers and clarifications:
 - **Contributions carry an explicit `project_id`** — they can't be project-linked through a quest (may predate quests) or by a shared template node id. Anchors pin to study-material text ranges / audio timestamps. (Q7 clarification)
 - **Assignments will reference template node ids and ranges** once project templates exist; asset links are mainly for rework. (Q3)
 - **`submission_state` depends on the quest remixing feature** for partial-work / partial-rework merging. (Q8)
-- **`review_decision` stays separate from `review_submission`** because a phase aggregates multiple group decisions under a configurable signoff rule. (Q9)
+- **`review_decision` stays separate from `review_submission`** because approval aggregates at two levels — members → group (slot rule), then groups → phase (phase rule), each configurable. `review_decision` is the per-member vote; group verdicts and phase outcomes are computed. (Q9)
 - **One polymorphic `asset_link` table replaces `asset_anchor`** — (target_type, target_id, link_role, anchor_data, denormalized project_id). Half the link targets are opaque JSONB node ids that can't be FK'd anyway; `link_role` lets the same table express anchoring, comments, replies, revisions, and flags.
 - **`review_comment` and `review_asset_flag` are gone as tables** — comments are assets (`content_type = 'comment'`) linked via `comment_on`/`reply_to`; flags are `flag`-role links. Decision *reason* becomes a linked comment-asset. Only the structured verdict (`review_decision`) remains a dedicated row.
-- **The review flow is an event-sourced statechart** — `review_event` is the source of truth; `quest.submission_state` / `review_submission.status` / `current_phase_id` are server-computed projections (resolving the apparent redundancy between them); transitions are guarded server RPCs interpreting the workflow JSONB.
+- **The review flow is an event-sourced statechart** — `review_event` is the source of truth; `quest.submission_state` / `review_submission.status` / `current_phase_id` are server-computed projections (resolving the apparent redundancy between them); transitions are computed by a guarded server-side **trigger** (the reducer) interpreting the workflow JSONB, fired when a client-written decision row syncs in.
 - **Visibility is project-wide** — contributions and comments are visible to every project member; no per-asset ACL. Resolves the former contribution-scope and asset-ACL open questions together.
 - **Multi-assignee completion merges via `completion_rule`** (`any`|`all`) on the assignment; the objective view is computed at query time.
 - **Contributions are bare assets + anchors** — no study-quest container for MVP; Option D can be layered on later if needed.
@@ -631,8 +687,8 @@ Decisions in this doc rest on the following assumptions. If one turns out to be 
 - **A6 — One workflow per project.** `project.workflow_template_id` holds the project's single workflow (one column, one workflow by construction); a project runs a single review process at a time. *(Supports: phase/group mapping; submission routing.)*
 - **A7 — Template editing is website-only; clients are read-only on templates.** No server-side draft state; drafts live in the browser. *(Supports: fork-always immutability; the app/website split.)*
 - **A8 — Review is opt-in and additive.** Projects with no workflow (`project.workflow_template_id` null) keep vote-based approval unchanged. *(Supports: the migration/rollout plan.)*
-- **A9 — Review-state transitions can require connectivity.** Submitting, deciding, and advancing happen via server RPCs; offline devices stage intents but state only moves when the server processes them. *(Supports: the event-sourced engine; projection-only state columns.)*
-- **A10 — Application-level integrity is acceptable for links.** `asset_link` targets (like template node ids today) are validated in RPCs, not by FKs; orphan checks run server-side. *(Supports: the polymorphic `asset_link` design.)*
+- **A9 — Phase outcomes are computed server-side, after decisions sync.** Casting a decision is an offline-capable row write; the server-side trigger computes the aggregate outcome and advances state once decisions sync and converge. A phase can't be finalized on a single offline device because the outcome depends on other groups' decisions. *(Supports: the event-sourced engine; projection-only state columns.)*
+- **A10 — Application-level integrity is acceptable for links.** `asset_link` targets (like template node ids today) are validated server-side, not by FKs; orphan checks run server-side. *(Supports: the polymorphic `asset_link` design.)*
 - **A11 — No content within a project needs to be hidden from project members.** Review feedback must cross roles, key terms must span pericopes, and the governance model favors transparency. *(Supports: project-wide visibility; no per-asset ACL; visibility == project sync bucket. If a partner requires confidential group deliberation, revisit via a `visibility` enum on `asset_link`.)*
 
 ---
@@ -684,11 +740,11 @@ These are genuinely undecided:
 | Study quest | A project-scoped quest container for study content (considered, not adopted; can be layered on later) |
 | Completion rule | Per-assignment merge rule for multi-assignee units: `any` (default) or `all` |
 | Submission | One review pass of a quest version through the phases |
-| Decision | One group's verdict at one phase |
-| Signoff rule | How a phase resolves: any one / unanimous / quorum |
+| Decision (vote) | One member's vote at one phase, within their group; group verdicts and phase outcomes are computed from these by the reducer |
+| Signoff rule | How approval resolves (any one / unanimous / quorum) at two levels: within a group over its members (`group_slot.signoff_rule`) and across a phase's groups (`phase.signoff_rule`) |
 | Comment | An asset (`content_type = 'comment'`) linked via `comment_on`/`reply_to` — not a dedicated table |
 | Flag | A `flag`-role `asset_link` marking an asset for rework; blocks advancement while `active` |
 | Review event | A row in the append-only `review_event` log — the source of truth for review state |
 | Projection | A server-computed state column (`submission_state`, `status`, `current_phase_id`) derived from the event log; never client-written |
-| Transition RPC | A server function (e.g. `cast_decision`) that validates, evaluates guards against the workflow JSONB, appends an event, and recomputes projections in one transaction |
-| Reducer | The generic, template-driven interpreter that turns events + workflow JSONB into projections |
+| Reducer trigger | A DB trigger on `review_decision` / `asset_link` that fires when a client-written row syncs in; it validates the row, evaluates guards against the workflow JSONB, appends `review_event`(s), and recomputes projections — all in one transaction |
+| Reducer | The template-driven pure function (run inside the trigger) that turns the current decisions + workflow JSONB into the next state + the events to append |

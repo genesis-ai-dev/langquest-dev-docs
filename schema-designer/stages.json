@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "stages": [
+    {
+      "id": "00-current",
+      "file": "stages/00-current.aml",
+      "title": "Current production",
+      "description": "Schema as deployed today",
+      "status": "live"
+    }
+  ]
+}

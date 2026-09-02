@@ -9,8 +9,10 @@ import { TemplateDesign } from "./pages/TemplateDesign";
 import { TemplateLifecycle } from "./pages/TemplateLifecycle";
 import { WorkflowBuilder } from "./pages/WorkflowBuilder";
 import { CombinedSchema } from "./pages/CombinedSchema";
+import { AttachmentSim } from "./pages/AttachmentSim";
+import { SchemaDesignerPage } from "./schema-designer/SchemaDesignerPage";
 
-type Page = "schema" | "migration" | "cicd" | "sync" | "auth" | "template" | "lifecycle" | "workflow" | "combined";
+type Page = "schema" | "migration" | "cicd" | "sync" | "auth" | "template" | "lifecycle" | "workflow" | "combined" | "attachment-sim" | "designer";
 
 function getPage(): Page {
   const h = window.location.hash;
@@ -22,6 +24,8 @@ function getPage(): Page {
   if (h === "#lifecycle") return "lifecycle";
   if (h === "#workflow") return "workflow";
   if (h === "#combined") return "combined";
+  if (h === "#attachment-sim") return "attachment-sim";
+  if (h === "#designer") return "designer";
   return "schema";
 }
 
@@ -52,6 +56,10 @@ export default function App() {
         <WorkflowBuilder />
       ) : page === "combined" ? (
         <CombinedSchema />
+      ) : page === "attachment-sim" ? (
+        <AttachmentSim />
+      ) : page === "designer" ? (
+        <SchemaDesignerPage />
       ) : (
         <DatabaseSchema />
       )}
