@@ -80,7 +80,16 @@ export function SchemaDesignerPage() {
         <>
           <div className="flex-1 min-h-0 flex">
             <AmlEditorPane />
-            <CanvasHost fitKey={activeStageId ?? "none"} />
+            <div className="flex-1 min-h-0 relative flex">
+              <CanvasHost fitKey={activeStageId ?? "none"} />
+              {schema.tables.length === 0 && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <p className="font-mono text-[.75rem] text-txt-dim text-center px-6">
+                    This stage is empty. Add a table or borrow one from another stage.
+                  </p>
+                </div>
+              )}
+            </div>
             <InspectorPanel />
           </div>
           {viewMode === "diff" && !migrationOpen && (

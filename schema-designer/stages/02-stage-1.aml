@@ -1,0 +1,528 @@
+asset
+  id uuid pk
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  name text nullable
+  source_language_id uuid nullable
+  images "text[]" nullable
+  active boolean
+  creator_id uuid nullable -> profile(id)
+  visible boolean nullable
+  download_profiles "text[]" nullable
+  ingest_batch_id uuid nullable
+  project_id uuid nullable -> project(id)
+  parent_id uuid nullable -> asset(id)
+  source_asset_id uuid nullable -> asset(id)
+  order_index integer nullable
+  content_type text nullable
+  metadata text nullable
+
+asset_content_link
+  id uuid pk
+  created_at text
+  last_updated text
+  asset_id uuid -> asset(id)
+  text text nullable
+  active boolean
+  download_profiles "text[]" nullable
+  source_language_id uuid nullable
+  ingest_batch_id uuid nullable
+  audio jsonb nullable
+  text_search_vector tsvector nullable
+  languoid_id uuid nullable -> languoid(id)
+  order_index integer
+
+asset_tag_link
+  asset_id uuid pk -> asset(id)
+  tag_id uuid pk -> tag(id)
+  active boolean
+  created_at "timestamp with time zone"
+  last_modified "timestamp with time zone"
+  download_profiles "text[]" nullable
+  ingest_batch_id uuid nullable
+
+bible_audio_timestamp
+  id uuid pk
+  audio_fileset_id text
+  bible_id text nullable
+  book_id text
+  chapter integer
+  timestamps jsonb
+  created_at "timestamp with time zone"
+  updated_at "timestamp with time zone"
+
+blocked_content
+  id uuid pk
+  active boolean
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  profile_id uuid -> profile(id)
+  content_id uuid
+  content_table text
+
+blocked_users
+  active boolean
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  blocker_id uuid pk -> profile(id)
+  blocked_id uuid pk -> profile(id)
+
+clone_job
+  id uuid pk
+  root_project_id uuid -> project(id)
+  status text
+  options jsonb
+  progress jsonb
+  created_at "timestamp with time zone"
+  updated_at "timestamp with time zone"
+
+export_quest_artifact
+  id uuid pk
+  quest_id uuid -> quest(id)
+  project_id uuid -> project(id)
+  audio_url text nullable
+  metadata jsonb
+  export_type text
+  status text
+  error_message text nullable
+  share_token "text UNIQUE" nullable
+  share_expires_at "timestamp with time zone" nullable
+  checksum text
+  created_by uuid -> profile(id)
+  created_at "timestamp with time zone"
+  updated_at "timestamp with time zone"
+
+flag
+  id uuid pk
+  active boolean
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone" nullable
+  name "text  UNIQUE"
+
+invite
+  id uuid pk
+  sender_profile_id uuid -> profile(id)
+  receiver_profile_id uuid nullable -> profile(id)
+  project_id uuid -> project(id)
+  status text
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  as_owner boolean
+  email text
+  count integer
+  active boolean
+
+language
+  id uuid pk
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  native_name text
+  english_name text
+  iso639_3 text
+  ui_ready boolean
+  creator_id uuid nullable -> profile(id)
+  active boolean
+  locale text nullable
+  download_profiles "text[]" nullable
+  ingest_batch_id uuid nullable
+
+language_languoid_map
+  language_id uuid pk
+  languoid_id uuid
+  created_at "timestamp with time zone"
+
+languoid
+  id uuid pk
+  parent_id uuid nullable -> languoid(id)
+  name text nullable
+  ui_ready boolean
+  active boolean
+  download_profiles "text[]" nullable
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  creator_id uuid nullable -> profile(id)
+
+languoid_alias
+  id uuid pk
+  subject_languoid_id uuid -> languoid(id)
+  label_languoid_id uuid -> languoid(id)
+  name text
+  source_names "text[]"
+  active boolean
+  download_profiles "text[]" nullable
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  creator_id uuid nullable -> profile(id)
+
+languoid_link_suggestion
+  id uuid pk
+  languoid_id uuid -> languoid(id)
+  suggested_languoid_id uuid -> languoid(id)
+  profile_id uuid -> profile(id)
+  match_rank integer
+  matched_on text nullable
+  matched_value text nullable
+  status text
+  active boolean
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+
+languoid_property
+  id uuid pk
+  languoid_id uuid -> languoid(id)
+  key text
+  value text
+  active boolean
+  download_profiles "text[]" nullable
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  creator_id uuid nullable -> profile(id)
+
+languoid_region
+  id uuid pk
+  languoid_id uuid -> languoid(id)
+  region_id uuid -> region(id)
+  majority boolean nullable
+  official boolean nullable
+  native boolean nullable
+  active boolean
+  download_profiles "text[]" nullable
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  creator_id uuid nullable -> profile(id)
+
+languoid_source
+  id uuid pk
+  name text
+  version text nullable
+  languoid_id uuid -> languoid(id)
+  unique_identifier text nullable
+  url text nullable
+  active boolean
+  download_profiles "text[]" nullable
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  creator_id uuid nullable -> profile(id)
+
+map_acl
+  job_id uuid -> clone_job(id)
+  src_id uuid
+  dst_id uuid
+  created_at "timestamp with time zone"
+
+map_asset
+  job_id uuid -> clone_job(id)
+  src_id uuid
+  dst_id uuid
+  created_at "timestamp with time zone"
+
+map_project
+  job_id uuid -> clone_job(id)
+  src_id uuid
+  dst_id uuid
+  created_at "timestamp with time zone"
+
+map_quest
+  job_id uuid -> clone_job(id)
+  src_id uuid
+  dst_id uuid
+  created_at "timestamp with time zone"
+
+notification
+  id uuid pk
+  profile_id uuid -> profile(id)
+  viewed boolean
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  target_table_name text
+  target_record_id uuid
+
+profile
+  id uuid pk
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  username text nullable
+  password text nullable
+  ui_language_id uuid nullable
+  active boolean
+  terms_accepted boolean
+  avatar text nullable
+  terms_accepted_at "timestamp with time zone" nullable
+  email "text UNIQUE" nullable
+  ui_languoid_id uuid nullable -> languoid(id)
+
+profile_project_link
+  profile_id uuid pk -> profile(id)
+  project_id uuid pk -> project(id)
+  active boolean
+  membership text
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  download_profiles "text[]" nullable
+
+project
+  id uuid pk
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  name text
+  description text nullable
+  target_language_id uuid nullable
+  active boolean nullable
+  creator_id uuid nullable -> profile(id)
+  private boolean nullable
+  visible boolean nullable
+  download_profiles "text[]" nullable
+  ingest_batch_id uuid nullable
+  priority smallint nullable
+  template text nullable
+  versification_template text nullable
+
+project_closure
+  project_id uuid pk -> project(id)
+  asset_ids jsonb nullable
+  translation_ids jsonb nullable
+  vote_ids jsonb nullable
+  tag_ids jsonb nullable
+  language_ids jsonb nullable
+  quest_ids jsonb nullable
+  quest_asset_link_ids jsonb nullable
+  asset_content_link_ids jsonb nullable
+  quest_tag_link_ids jsonb nullable
+  asset_tag_link_ids jsonb nullable
+  total_quests integer
+  total_assets integer
+  total_translations integer
+  approved_translations integer
+  download_profiles "text[]" nullable
+  last_updated "timestamp with time zone"
+  source_language_ids jsonb nullable
+  target_language_ids jsonb nullable
+
+project_language_link
+  project_id uuid pk -> project(id)
+  language_id uuid nullable
+  language_type text pk
+  active boolean
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  download_profiles "text[]" nullable
+  ingest_batch_id uuid nullable
+  languoid_id uuid pk -> languoid(id)
+
+project_rollup_progress
+  project_id uuid pk -> project(id)
+  last_seen_quest_created_at "timestamp with time zone" nullable
+  last_seen_quest_id uuid nullable
+  updated_at "timestamp with time zone"
+
+quest
+  id uuid pk
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  name text nullable
+  description text nullable
+  project_id uuid -> project(id)
+  active boolean
+  creator_id uuid nullable -> profile(id)
+  visible boolean nullable
+  download_profiles "text[]" nullable
+  ingest_batch_id uuid nullable
+  parent_id uuid nullable -> quest(id)
+  metadata text nullable
+
+quest_asset_link
+  quest_id uuid pk -> quest(id)
+  asset_id uuid pk -> asset(id)
+  active boolean
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  download_profiles "text[]" nullable
+  visible boolean
+  ingest_batch_id uuid nullable
+
+quest_closure
+  quest_id uuid pk -> quest(id)
+  project_id uuid -> project(id)
+  asset_ids jsonb nullable
+  translation_ids jsonb nullable
+  vote_ids jsonb nullable
+  tag_ids jsonb nullable
+  language_ids jsonb nullable
+  quest_asset_link_ids jsonb nullable
+  asset_content_link_ids jsonb nullable
+  quest_tag_link_ids jsonb nullable
+  asset_tag_link_ids jsonb nullable
+  total_assets integer
+  total_translations integer
+  approved_translations integer
+  last_updated "timestamp with time zone"
+  download_profiles "text[]" nullable
+  source_language_ids jsonb nullable
+  target_language_ids jsonb nullable
+
+quest_tag_link
+  quest_id uuid pk -> quest(id)
+  tag_id uuid pk -> tag(id)
+  active boolean
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  download_profiles "text[]" nullable
+  ingest_batch_id uuid nullable
+
+region
+  id uuid pk
+  parent_id uuid nullable -> region(id)
+  name text nullable
+  geometry boolean
+  active boolean
+  download_profiles "text[]" nullable
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  creator_id uuid nullable -> profile(id)
+
+region_alias
+  id uuid pk
+  subject_region_id uuid -> region(id)
+  label_languoid_id uuid -> languoid(id)
+  active boolean
+  download_profiles "text[]" nullable
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  creator_id uuid nullable -> profile(id)
+  name text nullable
+
+region_property
+  id uuid pk
+  region_id uuid -> region(id)
+  key text
+  value text
+  active boolean
+  download_profiles "text[]" nullable
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  creator_id uuid nullable -> profile(id)
+
+region_source
+  id uuid pk
+  name text
+  version text nullable
+  region_id uuid -> region(id)
+  unique_identifier text nullable
+  url text nullable
+  active boolean
+  download_profiles "text[]" nullable
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  creator_id uuid nullable -> profile(id)
+
+reports
+  id uuid pk
+  active boolean
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  record_id uuid
+  record_table text
+  reporter_id uuid -> profile(id)
+  reason text
+  details text nullable
+
+request
+  id uuid pk
+  sender_profile_id uuid -> profile(id)
+  project_id uuid -> project(id)
+  status text
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  count integer
+  active boolean
+
+subscription
+  id uuid pk
+  created_at "timestamp with time zone"
+  profile_id uuid -> profile(id)
+  active boolean
+  last_updated "timestamp with time zone"
+  target_record_id uuid
+  target_table_name text
+
+tag
+  id uuid pk
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  active boolean
+  download_profiles "text[]" nullable
+  ingest_batch_id uuid nullable
+  key text
+  value text
+
+translation
+  id uuid pk
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  asset_id uuid -> asset(id)
+  target_language_id uuid nullable
+  text text nullable
+  audio text nullable
+  creator_id uuid nullable -> profile(id)
+  active boolean
+  visible boolean nullable
+  download_profiles "text[]" nullable
+  ingest_batch_id uuid nullable
+
+upload_inbox
+  id uuid pk
+  data jsonb
+  logs text
+  error_code text
+  ref_code text
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+
+vote
+  id uuid pk
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  asset_id uuid -> asset(id)
+  polarity text
+  comment text nullable
+  creator_id uuid nullable -> profile(id)
+  active boolean
+  download_profiles "text[]" nullable
+  ingest_batch_id uuid nullable
+  translation_id uuid nullable
+
+template
+  id uuid pk
+  slug text nullable
+  name text
+  description text nullable
+  icon text nullable
+  structure jsonb
+  source_languoid_id uuid nullable -> languoid(id)
+  copied_from_template_id "uuid,                -- provenance: which template this was forked from" nullable -> template(id)
+  auto_sync boolean
+  shared boolean
+  active boolean
+  creator_id uuid nullable -> profile(id)
+  download_profiles "uuid[]"
+  project_count integer
+  created_at timestamptz
+  last_updated timestamptz
+
+project_template_link
+  id uuid pk
+  project_id uuid -> project(id)
+  template_id uuid -> template(id)
+  role text nullable
+  active boolean
+  frozen boolean
+  download_profiles "uuid[]"
+  created_at timestamptz
+
+template_revision
+  id uuid pk
+  template_id uuid -> template(id)
+  structure jsonb
+  actions jsonb nullable
+  saved_by uuid nullable -> profile(id)
+  saved_at timestamptz

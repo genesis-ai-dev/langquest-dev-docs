@@ -15,24 +15,24 @@
         "y": -409.6781952436254
       },
       "bible_audio_timestamp": {
-        "x": 920,
-        "y": 80
+        "x": -374.4432236652716,
+        "y": 1363.4291274589932
       },
       "blocked_content": {
-        "x": 1200,
+        "x": 990.8751157868296,
         "y": 80
       },
       "blocked_users": {
-        "x": 1503.7047895801127,
-        "y": 70.27495812097942
+        "x": 1321.7661403146542,
+        "y": 9.628741699159953
       },
       "clone_job": {
         "x": 3875.669516551314,
         "y": -872.5834574695332
       },
       "export_quest_artifact": {
-        "x": 2262.3696137436264,
-        "y": 24.761688305723382
+        "x": 2726.32483282507,
+        "y": -1376.4382333409428
       },
       "flag": {
         "x": -290.7563478273164,
@@ -95,20 +95,20 @@
         "y": 279.0485529646509
       },
       "profile": {
-        "x": 2744.3123576590333,
-        "y": 774.6151793192577
+        "x": 2644.8669598049037,
+        "y": 853.7757344031008
       },
       "profile_project_link": {
         "x": -98.58581300941555,
         "y": 678.5365720093811
       },
       "project": {
-        "x": 457.81005599527674,
-        "y": 612.8469272061402
+        "x": 436.51178967286086,
+        "y": 623.4960603673482
       },
       "project_closure": {
-        "x": 741.7224582350879,
-        "y": -74.57437258566438
+        "x": 1886.4322806420282,
+        "y": -908.2374139040688
       },
       "project_language_link": {
         "x": 2052.7214988215633,
@@ -119,8 +119,8 @@
         "y": 899.2374780407524
       },
       "quest": {
-        "x": 1477.9047700257795,
-        "y": 436.1916537380381
+        "x": 1368.4167247723717,
+        "y": 373.3970395485837
       },
       "quest_asset_link": {
         "x": 1845.9044289430374,
@@ -131,11 +131,11 @@
         "y": 1274.2836434262085
       },
       "quest_tag_link": {
-        "x": -123.04962301070535,
-        "y": 1106.7828600077387
+        "x": 271.9761847216645,
+        "y": -112.89536386665853
       },
       "region": {
-        "x": 2341.1897154861276,
+        "x": 2412.6606488897246,
         "y": 2697.3856798333986
       },
       "region_alias": {
@@ -151,8 +151,8 @@
         "y": 2611.3071750870618
       },
       "reports": {
-        "x": 1480,
-        "y": 960
+        "x": -680.9480472765056,
+        "y": 1701.538821587119
       },
       "request": {
         "x": -20.945478087362467,
@@ -163,16 +163,16 @@
         "y": 1439.8076640964775
       },
       "tag": {
-        "x": -110.81771801006045,
-        "y": 1431.9772430132848
+        "x": 108.32068627942938,
+        "y": 238.24961964685343
       },
       "translation": {
-        "x": 360,
-        "y": 1180
+        "x": 616.0088116954682,
+        "y": 1204.1517746882516
       },
       "upload_inbox": {
-        "x": 640,
-        "y": 1180
+        "x": -684.9999999999999,
+        "y": 1375.0000000000002
       },
       "vote": {
         "x": 920,
@@ -183,8 +183,8 @@
         "y": 2012.6003471650347
       },
       "project_template_link": {
-        "x": 572.518011953743,
-        "y": 2049.7963700295245
+        "x": 651.3809052898733,
+        "y": 1954.1541376857067
       },
       "template_revision": {
         "x": 1410.0965943051888,
@@ -201,7 +201,8 @@
     },
     "edges": {
       "template.creator_id->profile.id": {
-        "midX": 1722
+        "midX": 1722,
+        "stub": true
       },
       "region_source.region_id->region.id": {
         "midX": 2958
@@ -251,7 +252,8 @@
         "stub": true
       },
       "notification.profile_id->profile.id": {
-        "midX": 2113
+        "midX": 2113,
+        "stub": true
       },
       "languoid.parent_id->languoid.id": {
         "stub": true
@@ -267,8 +269,81 @@
       },
       "languoid_link_suggestion.profile_id->profile.id": {
         "stub": true
+      },
+      "subscription.profile_id->profile.id": {
+        "stub": true
+      },
+      "template_revision.saved_by->profile.id": {
+        "stub": true
+      },
+      "reports.reporter_id->profile.id": {
+        "stub": true
+      },
+      "quest.parent_id->quest.id": {
+        "stub": true
+      },
+      "quest.creator_id->profile.id": {
+        "stub": true
+      },
+      "invite.sender_profile_id->profile.id": {
+        "stub": true
+      },
+      "invite.receiver_profile_id->profile.id": {
+        "stub": true
+      },
+      "asset.creator_id->profile.id": {
+        "stub": true
+      },
+      "project_template_link.project_id->project.id": {
+        "midX": 595
+      },
+      "template_revision.template_id->template.id": {
+        "midX": 1350
+      },
+      "template.copied_from_template_id->template.id": {
+        "stub": true
+      },
+      "request.sender_profile_id->profile.id": {
+        "stub": true
+      },
+      "request.project_id->project.id": {
+        "stub": false
+      },
+      "profile_project_link.profile_id->profile.id": {
+        "stub": true
+      },
+      "language.creator_id->profile.id": {
+        "stub": true
+      },
+      "blocked_users.blocker_id->profile.id": {
+        "stub": true
+      },
+      "blocked_users.blocked_id->profile.id": {
+        "stub": true
+      },
+      "blocked_content.profile_id->profile.id": {
+        "stub": true
+      },
+      "project.creator_id->profile.id": {
+        "stub": true
+      },
+      "vote.creator_id->profile.id": {
+        "stub": true
+      },
+      "translation.creator_id->profile.id": {
+        "stub": true
       }
     }
   },
-  "stages": {}
+  "stages": {
+    "01-end-state": {
+      "nodes": {
+        "profile": {
+          "x": 2744.3123576590333,
+          "y": 774.6151793192577
+        }
+      },
+      "edges": {}
+    }
+  }
 }

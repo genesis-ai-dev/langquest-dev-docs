@@ -3,6 +3,7 @@ import {
   addField,
   addRelation,
   addTable,
+  importTables,
   removeField,
   removeTable,
   renameTable,
@@ -50,6 +51,43 @@ describe("domain operations", () => {
     schema = addRelation(schema, { table: "b", field: "a_id" }, { table: "a", field: "id" });
     schema = removeTable(schema, "a");
     expect(schema.relations).toHaveLength(0);
+  });
+
+  it("imports tables, their enums, and relations that can resolve", () => {
+    let source = addTable(emptySchema(), "profile");
+    source = addTable(source, "quest");
+    source = addField(source, "quest", { name: "owner_id", type: "uuid" });
+    source = addRelation(
+      source,
+      { table: "quest", field: "owner_id" },
+      { table: "profile", field: "id" },
+    );
+    source.enums.push({ name: "quest_status", values: ["draft", "live"] });
+    source = addField(source, "quest", { name: "status", type: "quest_status" });
+    source.tables[1].renamedFrom = "old_quest";
+
+    const target = addTable(emptySchema(), "profile");
+    const next = importTables(target, source, ["quest", "missing"]);
+    expect(next.tables.map((t) => t.name)).toEqual(["profile", "quest"]);
+    expect(next.tables[1].renamedFrom).toBeUndefined();
+    expect(next.enums.map((e) => e.name)).toEqual(["quest_status"]);
+    expect(next.relations).toHaveLength(1);
+    expect(next.relations[0].src.table).toBe("quest");
+    expect(next.relations[0].dst.table).toBe("profile");
+  });
+
+  it("skips tables that already exist and drops FKs to tables that do not", () => {
+    let source = addTable(emptySchema(), "asset");
+    source = addTable(source, "project");
+    source = addField(source, "asset", { name: "project_id", type: "uuid" });
+    source = addRelation(
+      source,
+      { table: "asset", field: "project_id" },
+      { table: "project", field: "id" },
+    );
+    const next = importTables(emptySchema(), source, ["asset"]);
+    expect(next.tables.map((t) => t.name)).toEqual(["asset"]);
+    expect(next.relations).toHaveLength(0);
   });
 
   it("tracks field renames and strips them on duplicate", () => {

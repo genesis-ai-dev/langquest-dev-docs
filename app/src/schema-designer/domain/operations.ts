@@ -7,7 +7,7 @@ import type {
   Schema,
   Trigger,
 } from "./types";
-import { emptySchema } from "./types";
+import { emptySchema, relationKey } from "./types";
 
 function clone<T>(value: T): T {
   return structuredClone(value);
@@ -251,6 +251,42 @@ export function upsertEnum(schema: Schema, en: EnumType): Schema {
 export function removeEnum(schema: Schema, name: string): Schema {
   const next = clone(schema);
   next.enums = next.enums.filter((e) => e.name !== name);
+  return next;
+}
+
+export function importTables(target: Schema, source: Schema, names: string[]): Schema {
+  const want = new Set(names);
+  const next = clone(target);
+  const taken = new Set(next.tables.map((t) => t.name));
+  const imported = new Set<string>();
+  for (const table of source.tables) {
+    if (!want.has(table.name) || taken.has(table.name)) continue;
+    const copy = clone(table);
+    delete copy.renamedFrom;
+    for (const field of copy.fields) delete field.renamedFrom;
+    next.tables.push(copy);
+    taken.add(table.name);
+    imported.add(table.name);
+  }
+  const importedTypes = new Set(
+    next.tables.filter((t) => imported.has(t.name)).flatMap((t) => t.fields.map((f) => f.type)),
+  );
+  const haveEnums = new Set(next.enums.map((e) => e.name));
+  for (const en of source.enums) {
+    if (!importedTypes.has(en.name) || haveEnums.has(en.name)) continue;
+    next.enums.push(clone(en));
+    haveEnums.add(en.name);
+  }
+  const haveTables = new Set(next.tables.map((t) => t.name));
+  const haveRels = new Set(next.relations.map((r) => relationKey(r)));
+  for (const rel of source.relations) {
+    if (!imported.has(rel.src.table) && !imported.has(rel.dst.table)) continue;
+    if (!haveTables.has(rel.src.table) || !haveTables.has(rel.dst.table)) continue;
+    const key = relationKey(rel);
+    if (haveRels.has(key)) continue;
+    next.relations.push(clone(rel));
+    haveRels.add(key);
+  }
   return next;
 }
 

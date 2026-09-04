@@ -9,6 +9,7 @@ import {
   addTable,
   canRename,
   canRenameField,
+  importTables,
   moveField,
   renameTable as renameTableOp,
   removeEnum,
@@ -26,7 +27,14 @@ import {
   upsertEnum,
   upsertFunction,
 } from "../domain/operations";
-import { emptyManifest, nextStageId, type StageManifest, type StageMeta, type StageStatus } from "../domain/project";
+import {
+  emptyManifest,
+  moveStage,
+  nextStageId,
+  type StageManifest,
+  type StageMeta,
+  type StageStatus,
+} from "../domain/project";
 import type { Cardinality, DbFunction, EnumType, Policy, Schema, Trigger } from "../domain/types";
 import { emptySchema, functionNodeKey } from "../domain/types";
 import { ensurePlaced, resolveLayout, withEdgeLayout, withEdgesStubbed, withNodeCollapsed, withNodePosition } from "../layout/resolve";
@@ -119,11 +127,13 @@ export interface DesignerState {
   focusTable: (name: string) => void;
 
   activateStage: (id: string) => Promise<void>;
-  createStage: (title: string, description?: string) => Promise<void>;
+  createStage: (title: string, opts?: { blank?: boolean; description?: string }) => Promise<void>;
+  listStageTables: (stageId: string) => Promise<string[]>;
+  borrowTables: (fromStageId: string, tableNames: string[]) => Promise<void>;
   deleteStage: (id: string) => Promise<void>;
   renameStage: (id: string, title: string, description?: string) => Promise<void>;
   setStageStatus: (id: string, status: StageStatus) => Promise<void>;
-  reorderStage: (id: string, direction: -1 | 1) => Promise<void>;
+  reorderStage: (id: string, toIndex: number) => Promise<void>;
   setViewMode: (mode: ViewMode) => Promise<void>;
   setCompareWith: (id: string | null) => Promise<void>;
 
@@ -551,22 +561,49 @@ export const useDesignerStore = create<DesignerState>()(
           useDesignerStore.temporal.getState().resume();
         },
 
-        createStage: async (title, description = "") => {
+        createStage: async (title, opts = {}) => {
           const { schema, manifest, readOnly } = get();
-          if (!schema || readOnly) return;
+          if (readOnly) return;
+          if (!opts.blank && !schema) return;
           const { id, file } = nextStageId(manifest.stages, title);
-          const text = generateSchema(stripRenamedFrom(schema));
+          const seed = opts.blank ? emptySchema() : stripRenamedFrom(schema!);
+          const text = generateSchema(seed);
           const mtime = await writeFile(file, text);
           const nextManifest: StageManifest = {
             ...manifest,
             stages: [
               ...manifest.stages,
-              { id, file, title, description, status: "planned" },
+              { id, file, title, description: opts.description ?? "", status: "planned" },
             ],
           };
           set((s) => ({ lastWriteMtimes: { ...s.lastWriteMtimes, [file]: mtime } }));
           saveManifest(nextManifest);
           await get().activateStage(id);
+        },
+
+        listStageTables: async (stageId) => {
+          const loaded = await loadStageAml(stageId, {});
+          return loaded.schema.tables.map((t) => t.name);
+        },
+
+        borrowTables: async (fromStageId, tableNames) => {
+          const { schema, activeStageId, readOnly, layoutDoc, manifest } = get();
+          if (!schema || !activeStageId || readOnly || tableNames.length === 0) return;
+          const loaded = await loadStageAml(fromStageId, {});
+          const before = new Set(schema.tables.map((t) => t.name));
+          applyOp((s) => importTables(s, loaded.schema, tableNames));
+          const imported =
+            get().schema?.tables.filter((t) => !before.has(t.name)).map((t) => t.name) ?? [];
+          if (imported.length === 0) return;
+          const order = stageOrder(manifest);
+          const sourceLayout = resolveLayout(layoutDoc, order, fromStageId);
+          let nextLayout = layoutDoc;
+          for (const name of imported) {
+            const pos = sourceLayout.nodes[name];
+            if (pos) nextLayout = withNodePosition(nextLayout, order, activeStageId, name, { x: pos.x, y: pos.y });
+          }
+          nextLayout = ensurePlaced(nextLayout, order, activeStageId, imported);
+          if (nextLayout !== get().layoutDoc) saveLayout(nextLayout);
         },
 
         deleteStage: async (id) => {
@@ -604,14 +641,11 @@ export const useDesignerStore = create<DesignerState>()(
           });
         },
 
-        reorderStage: async (id, direction) => {
-          const { manifest } = get();
-          const i = manifest.stages.findIndex((s) => s.id === id);
-          const j = i + direction;
-          if (i < 0 || j < 0 || j >= manifest.stages.length) return;
-          const stages = [...manifest.stages];
-          const [item] = stages.splice(i, 1);
-          stages.splice(j, 0, item);
+        reorderStage: async (id, toIndex) => {
+          const { manifest, readOnly } = get();
+          if (readOnly) return;
+          const stages = moveStage(manifest.stages, id, toIndex);
+          if (stages === manifest.stages) return;
           saveManifest({ ...manifest, stages });
         },
 

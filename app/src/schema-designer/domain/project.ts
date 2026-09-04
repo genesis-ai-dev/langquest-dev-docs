@@ -35,3 +35,14 @@ export function nextStageId(existing: StageMeta[], title: string): { id: string;
   const id = `${num}-${slug}`;
   return { id, file: `stages/${id}.aml` };
 }
+
+export function moveStage(stages: StageMeta[], id: string, toIndex: number): StageMeta[] {
+  const from = stages.findIndex((s) => s.id === id);
+  if (from < 0) return stages;
+  const to = Math.max(0, Math.min(Math.trunc(toIndex), stages.length - 1));
+  if (from === to) return stages;
+  const next = [...stages];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}

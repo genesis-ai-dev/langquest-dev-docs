@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { HeaderButton } from "../../components/Header";
 import { useDesignerStore, useSaveSummary } from "../state/store";
+import { BorrowTablesDialog } from "./BorrowTablesDialog";
 
 export function DesignerToolbar() {
   const status = useSaveSummary();
@@ -7,6 +9,8 @@ export function DesignerToolbar() {
   const editorOpen = useDesignerStore((s) => s.editorOpen);
   const inspectorOpen = useDesignerStore((s) => s.inspectorOpen);
   const conflictPaths = useDesignerStore((s) => s.conflictPaths);
+  const canBorrow = useDesignerStore((s) => s.manifest.stages.length > 1);
+  const [borrowOpen, setBorrowOpen] = useState(false);
 
   const label =
     status === "saved"
@@ -45,6 +49,9 @@ export function DesignerToolbar() {
       {!readOnly && (
         <>
           <HeaderButton onClick={() => useDesignerStore.getState().addTableAt()}>+ Table</HeaderButton>
+          {canBorrow && (
+            <HeaderButton onClick={() => setBorrowOpen(true)}>Borrow</HeaderButton>
+          )}
           <HeaderButton onClick={() => useDesignerStore.getState().undo()}>Undo</HeaderButton>
           <HeaderButton onClick={() => useDesignerStore.getState().redo()}>Redo</HeaderButton>
         </>
@@ -61,6 +68,7 @@ export function DesignerToolbar() {
       >
         Inspector
       </HeaderButton>
+      {borrowOpen && <BorrowTablesDialog onClose={() => setBorrowOpen(false)} />}
     </>
   );
 }
