@@ -16,6 +16,8 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Template Lifecycle (beta)", hash: "#lifecycle" },
   { label: "Process Templates (beta)", hash: "#workflow" },
   { label: "Combined Schema (beta)", hash: "#combined" },
+  { label: "Attachment Sim", hash: "#attachment-sim" },
+  { label: "Designer (beta)", hash: "#designer" },
 ];
 
 export function Header({

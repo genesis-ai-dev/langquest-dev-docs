@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "stages": [
+    {
+      "id": "00-current",
+      "file": "stages/00-current.aml",
+      "title": "Current production",
+      "description": "Schema as deployed today",
+      "status": "live"
+    },
+    {
+      "id": "02-stage-1",
+      "file": "stages/02-stage-1.aml",
+      "title": "Stage 1",
+      "description": "",
+      "status": "planned"
+    },
+    {
+      "id": "01-end-state",
+      "file": "stages/01-end-state.aml",
+      "title": "End state",
+      "description": "",
+      "status": "planned"
+    }
+  ]
+}

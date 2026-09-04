@@ -1,0 +1,21 @@
+{
+  "name": "langquest-icepanel",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "tsx src/sync.ts",
+    "import-model": "tsx src/sync.ts --model-only",
+    "sync-views": "tsx src/sync.ts --views-only",
+    "sync-review": "tsx src/syncReview.ts"
+  },
+  "dependencies": {
+    "@icepanel/sdk": "^0.1.9",
+    "dotenv": "^16.4.7",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

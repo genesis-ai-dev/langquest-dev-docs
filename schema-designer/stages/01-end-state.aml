@@ -1,0 +1,13 @@
+profile
+  id uuid pk
+  created_at "timestamp with time zone"
+  last_updated "timestamp with time zone"
+  username text nullable
+  password text nullable
+  ui_language_id uuid nullable
+  active boolean
+  terms_accepted boolean
+  avatar text nullable
+  terms_accepted_at "timestamp with time zone" nullable
+  email "text UNIQUE" nullable
+  ui_languoid_id uuid nullable
