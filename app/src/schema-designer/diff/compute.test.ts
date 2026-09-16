@@ -35,4 +35,12 @@ describe("computeDiff", () => {
       changes: [{ property: "type", from: "uuid", to: "text" }],
     });
   });
+
+  it("treats newTable as added even when a same-name table exists before", () => {
+    const before = addTable(emptySchema(), "asset");
+    const after = { ...before, tables: [{ ...before.tables[0], newTable: true }] };
+    const diff = computeDiff(before, after);
+    expect(diff.tables.find((t) => t.name === "asset" && t.kind === "added")).toBeDefined();
+    expect(diff.tables.find((t) => t.name === "asset" && t.kind === "removed")).toBeDefined();
+  });
 });

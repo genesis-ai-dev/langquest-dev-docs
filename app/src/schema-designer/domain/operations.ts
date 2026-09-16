@@ -86,6 +86,28 @@ export function setTableDoc(schema: Schema, name: string, doc: string | undefine
   return next;
 }
 
+export function setTableDerivedFrom(schema: Schema, name: string, source: string | null): Schema {
+  const next = clone(schema);
+  const table = next.tables.find((t) => t.name === name);
+  if (!table) return schema;
+  if (!source) {
+    delete table.renamedFrom;
+    table.newTable = true;
+    return next;
+  }
+  delete table.newTable;
+  if (source === table.name) delete table.renamedFrom;
+  else table.renamedFrom = source;
+  return next;
+}
+
+export function tableDerivedFrom(table: { name: string; renamedFrom?: string; newTable?: boolean }, prevNames: readonly string[]): string | null {
+  if (table.newTable) return null;
+  if (table.renamedFrom && prevNames.includes(table.renamedFrom)) return table.renamedFrom;
+  if (prevNames.includes(table.name)) return table.name;
+  return null;
+}
+
 export function setTableRlsEnabled(schema: Schema, name: string, enabled: boolean): Schema {
   const next = clone(schema);
   const table = next.tables.find((t) => t.name === name);
@@ -263,6 +285,7 @@ export function importTables(target: Schema, source: Schema, names: string[]): S
     if (!want.has(table.name) || taken.has(table.name)) continue;
     const copy = clone(table);
     delete copy.renamedFrom;
+    delete copy.newTable;
     for (const field of copy.fields) delete field.renamedFrom;
     next.tables.push(copy);
     taken.add(table.name);
@@ -294,6 +317,7 @@ export function stripRenamedFrom(schema: Schema): Schema {
   const next = clone(schema);
   for (const table of next.tables) {
     delete table.renamedFrom;
+    delete table.newTable;
     for (const field of table.fields) delete field.renamedFrom;
   }
   return next;

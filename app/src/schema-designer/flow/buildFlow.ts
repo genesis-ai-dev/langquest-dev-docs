@@ -2,9 +2,9 @@ import type { Edge, Node } from "@xyflow/react";
 import { MarkerType } from "@xyflow/react";
 import type { ChangeKind, StageDiff, TableDiff } from "../diff/types";
 import { functionNodeKey, relationKey, type Schema } from "../domain/types";
-import type { ResolvedLayout } from "../layout/types";
+import { groupNodeId, type ResolvedLayout } from "../layout/types";
 import type { Selection, ViewMode } from "../state/store";
-import type { FkRef, FunctionNodeData, RelationEdgeData, TableNodeData } from "./types";
+import type { FkRef, FunctionNodeData, GroupNodeData, RelationEdgeData, TableNodeData } from "./types";
 
 export interface BuildFlowInput {
   schema: Schema;
@@ -67,6 +67,24 @@ export function buildFlow(input: BuildFlowInput): { nodes: Node[]; edges: Edge[]
   }
 
   const nodes: Node[] = [];
+
+  for (const group of Object.values(resolvedLayout.groups)) {
+    nodes.push({
+      id: groupNodeId(group.id),
+      type: "groupNode",
+      position: { x: group.x, y: group.y },
+      style: { width: group.width, height: group.height },
+      width: group.width,
+      height: group.height,
+      zIndex: -1,
+      connectable: false,
+      data: {
+        label: group.label,
+        color: group.color,
+        readOnly,
+      } satisfies GroupNodeData,
+    });
+  }
 
   for (const table of schema.tables) {
     const pos = resolvedLayout.nodes[table.name] ?? { x: 80, y: 80 };

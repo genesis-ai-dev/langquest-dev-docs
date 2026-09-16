@@ -11,3 +11,15 @@ profile
   terms_accepted_at "timestamp with time zone" nullable
   email "text UNIQUE" nullable
   ui_languoid_id uuid nullable
+
+asset
+  id uuid pk
+
+review_flow
+  id uuid pk
+
+content_template
+  id uuid pk
+
+reference_material
+  id uuid pk

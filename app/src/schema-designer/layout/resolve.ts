@@ -1,4 +1,14 @@
-import { emptyLayer, type EdgeLayout, type LayoutDoc, type ResolvedLayout, type XY } from "./types";
+import {
+  emptyLayer,
+  type EdgeLayout,
+  type GroupLayout,
+  type LayoutDoc,
+  type LayoutLayer,
+  type ResolvedLayout,
+  type XY,
+} from "./types";
+
+const EMPTY_GROUPS: Record<string, GroupLayout> = {};
 
 const CELL_W = 280;
 const CELL_H = 220;
@@ -27,12 +37,60 @@ function mergeLayer(
   }
 }
 
+export function groupsOnStage(
+  doc: LayoutDoc,
+  firstStageId: string | null,
+  stageId: string,
+): Record<string, GroupLayout> {
+  if (!firstStageId || stageId === firstStageId) {
+    return doc.base.groups && Object.keys(doc.base.groups).length > 0
+      ? doc.base.groups
+      : (doc.groups ?? EMPTY_GROUPS);
+  }
+  return doc.stages[stageId]?.groups ?? EMPTY_GROUPS;
+}
+
+export function allGroups(doc: LayoutDoc): Record<string, GroupLayout> {
+  const out: Record<string, GroupLayout> = { ...(doc.groups ?? {}) };
+  Object.assign(out, doc.base.groups ?? {});
+  for (const layer of Object.values(doc.stages)) {
+    Object.assign(out, layer.groups ?? {});
+  }
+  return out;
+}
+
+export function normalizeLayout(doc: LayoutDoc): LayoutDoc {
+  const top = doc.groups ?? {};
+  const stages: Record<string, LayoutLayer> = {};
+  for (const [id, layer] of Object.entries(doc.stages ?? {})) {
+    stages[id] = {
+      nodes: layer.nodes ?? {},
+      edges: layer.edges ?? {},
+      groups: layer.groups ?? {},
+    };
+  }
+  return {
+    version: 1,
+    base: {
+      nodes: doc.base?.nodes ?? {},
+      edges: doc.base?.edges ?? {},
+      groups: { ...top, ...(doc.base?.groups ?? {}) },
+    },
+    stages,
+    groups: {},
+  };
+}
+
 export function resolveLayout(
   doc: LayoutDoc,
   stageOrder: string[],
   stageId: string,
 ): ResolvedLayout {
-  const resolved: ResolvedLayout = { nodes: {}, edges: {} };
+  const resolved: ResolvedLayout = {
+    nodes: {},
+    edges: {},
+    groups: { ...groupsOnStage(doc, stageOrder[0] ?? null, stageId) },
+  };
   mergeLayer(resolved, doc.base);
   const end = stageOrder.indexOf(stageId);
   const through = end < 0 ? stageOrder : stageOrder.slice(0, end + 1);
@@ -62,6 +120,64 @@ export function withNodePosition(
   layer.nodes[nodeKey] = { ...layer.nodes[nodeKey], x: pos.x, y: pos.y };
   if (!intoBase) next.stages[stageId] = layer;
   return next;
+}
+
+export function withNodePositions(
+  doc: LayoutDoc,
+  stageOrder: string[],
+  stageId: string,
+  positions: Record<string, XY>,
+): LayoutDoc {
+  const keys = Object.keys(positions);
+  if (keys.length === 0) return doc;
+  const next: LayoutDoc = structuredClone(doc);
+  const { layer, intoBase } = writeTarget(next, stageOrder, stageId);
+  for (const key of keys) {
+    const pos = positions[key];
+    layer.nodes[key] = { ...layer.nodes[key], x: pos.x, y: pos.y };
+  }
+  if (!intoBase) next.stages[stageId] = layer;
+  return next;
+}
+
+export function withGroup(
+  doc: LayoutDoc,
+  stageOrder: string[],
+  stageId: string,
+  group: GroupLayout,
+): LayoutDoc {
+  const next: LayoutDoc = structuredClone(doc);
+  const { layer, intoBase } = writeTarget(next, stageOrder, stageId);
+  layer.groups = { ...(layer.groups ?? {}), [group.id]: group };
+  if (!intoBase) next.stages[stageId] = layer;
+  return next;
+}
+
+export function withoutGroup(
+  doc: LayoutDoc,
+  stageOrder: string[],
+  stageId: string,
+  id: string,
+): LayoutDoc {
+  const first = stageOrder[0] ?? null;
+  if (!groupsOnStage(doc, first, stageId)[id]) return doc;
+  const next: LayoutDoc = structuredClone(doc);
+  const { layer, intoBase } = writeTarget(next, stageOrder, stageId);
+  const rest = { ...(layer.groups ?? {}) };
+  if (!(id in rest)) return doc;
+  delete rest[id];
+  layer.groups = rest;
+  if (!intoBase) next.stages[stageId] = layer;
+  return next;
+}
+
+export function nextGroupId(groups: Record<string, GroupLayout>): string {
+  let max = 0;
+  for (const id of Object.keys(groups)) {
+    const n = Number.parseInt(id.replace(/^g/i, ""), 10);
+    if (Number.isFinite(n)) max = Math.max(max, n);
+  }
+  return `g${max + 1}`;
 }
 
 export function withNodeCollapsed(

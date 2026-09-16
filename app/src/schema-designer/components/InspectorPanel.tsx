@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { cn } from "../../cn";
-import { relationKey } from "../domain/types";
+import { tableDerivedFrom } from "../domain/operations";
+import { relationKey, type Table } from "../domain/types";
+import { groupsOnStage } from "../layout/resolve";
+import { GROUP_COLORS, groupIdFromNode } from "../layout/types";
 import { resolvedFor, useDesignerStore } from "../state/store";
+import { PanelResizeHandle } from "./PanelResizeHandle";
+
+const EMPTY_PREV: Table[] = [];
 
 export function InspectorPanel() {
   const open = useDesignerStore((s) => s.inspectorOpen);
+  const width = useDesignerStore((s) => s.inspectorWidth);
   const selected = useDesignerStore((s) => s.selected);
   const schema = useDesignerStore((s) => s.schema);
   const readOnly = useDesignerStore((s) => s.readOnly);
@@ -12,12 +19,29 @@ export function InspectorPanel() {
   if (!open) return null;
 
   return (
-    <aside className="w-[300px] shrink-0 border-l border-border bg-card overflow-auto min-h-0">
-      <div className="px-3 py-1.5 font-mono text-[.62rem] uppercase tracking-[.1em] text-txt-dim border-b border-border">
-        Inspector
+    <aside
+      className="relative shrink-0 border-l border-border bg-card overflow-auto min-h-0"
+      style={{ width }}
+    >
+      <div className="px-3 py-1.5 font-mono text-[.62rem] uppercase tracking-[.1em] text-txt-dim border-b border-border flex items-center">
+        <span>Inspector</span>
+        <button
+          type="button"
+          className="ml-auto bg-transparent border-none text-txt-dim hover:text-txt cursor-pointer font-mono text-[.7rem]"
+          onClick={() => useDesignerStore.getState().setInspectorOpen(false)}
+        >
+          Hide
+        </button>
       </div>
+      <PanelResizeHandle
+        edge="start"
+        width={width}
+        onWidth={(w) => useDesignerStore.getState().setInspectorWidth(w)}
+      />
       <div className="p-3 flex flex-col gap-3">
         {!selected && schema && <TypesPanel readOnly={readOnly} />}
+        {selected?.kind === "group" && <GroupInspector groupId={selected.key} readOnly={readOnly} />}
+        {selected?.kind === "multi" && <MultiInspector keys={selected.keys} readOnly={readOnly} />}
         {selected?.kind === "table" && schema && (
           <TableInspector tableName={selected.key} readOnly={readOnly} />
         )}
@@ -105,6 +129,36 @@ function TypesPanel({ readOnly }: { readOnly: boolean }) {
   );
 }
 
+function DerivedFromField({ tableName, readOnly }: { tableName: string; readOnly: boolean }) {
+  const table = useDesignerStore((s) => s.schema?.tables.find((t) => t.name === tableName));
+  const hasPrev = useDesignerStore((s) => s.prevSchema != null);
+  const prevTables = useDesignerStore((s) => s.prevSchema?.tables ?? EMPTY_PREV);
+  if (!table || !hasPrev) return null;
+  const names = prevTables.map((t) => t.name);
+  const selected = tableDerivedFrom(table, names) ?? "";
+  return (
+    <label className="flex flex-col gap-1 text-[.72rem] text-txt-dim">
+      Derived from
+      <select
+        disabled={readOnly}
+        className="bg-code-bg border border-border rounded px-2 py-1 font-mono text-[.75rem] text-txt"
+        value={selected}
+        onChange={(e) => {
+          const value = e.target.value;
+          useDesignerStore.getState().setTableDerivedFrom(table.name, value === "" ? null : value);
+        }}
+      >
+        <option value="">New table</option>
+        {prevTables.map((t) => (
+          <option key={t.name} value={t.name}>
+            {t.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function TableInspector({ tableName, readOnly }: { tableName: string; readOnly: boolean }) {
   const table = useDesignerStore((s) => s.schema?.tables.find((t) => t.name === tableName));
   const [trig, setTrig] = useState("");
@@ -113,6 +167,7 @@ function TableInspector({ tableName, readOnly }: { tableName: string; readOnly: 
   return (
     <div className="flex flex-col gap-3">
       <h3 className="font-mono text-[.85rem] font-semibold">{table.name}</h3>
+      <DerivedFromField tableName={table.name} readOnly={readOnly} />
       <label className="flex flex-col gap-1 text-[.72rem] text-txt-dim">
         Doc
         <textarea
@@ -359,6 +414,98 @@ function FunctionInspector({ name, readOnly }: { name: string; readOnly: boolean
           onClick={() => useDesignerStore.getState().removeFunction(fn.name)}
         >
           Delete function
+        </button>
+      )}
+    </div>
+  );
+}
+
+const SWATCH: Record<(typeof GROUP_COLORS)[number], string> = {
+  purple: "bg-accent-purple",
+  cyan: "bg-accent-cyan",
+  amber: "bg-accent-amber",
+  green: "bg-accent-green",
+  pink: "bg-accent-pink",
+  red: "bg-accent-red",
+  blue: "bg-accent-blue",
+};
+
+function GroupInspector({ groupId, readOnly }: { groupId: string; readOnly: boolean }) {
+  const group = useDesignerStore((s) => {
+    if (!s.activeStageId) return undefined;
+    return groupsOnStage(s.layoutDoc, s.manifest.stages[0]?.id ?? null, s.activeStageId)[groupId];
+  });
+  if (!group) return <p className="text-txt-dim text-[.8rem]">Group not found.</p>;
+  return (
+    <div className="flex flex-col gap-2">
+      <h3 className="font-mono text-[.8rem]">Group</h3>
+      <label className="text-[.75rem] text-txt-dim flex flex-col gap-1">
+        Label
+        <input
+          disabled={readOnly}
+          className="bg-code-bg border border-border rounded px-2 py-1 font-mono text-[.75rem] text-txt"
+          value={group.label}
+          onChange={(e) => useDesignerStore.getState().updateGroup(groupId, { label: e.target.value })}
+        />
+      </label>
+      <div>
+        <h4 className="font-mono text-[.68rem] uppercase text-txt-dim mb-1">Color</h4>
+        <div className="flex flex-wrap gap-1.5">
+          {GROUP_COLORS.map((color) => (
+            <button
+              key={color}
+              type="button"
+              disabled={readOnly}
+              title={color}
+              className={cn(
+                "w-5 h-5 rounded-full border cursor-pointer",
+                SWATCH[color],
+                group.color === color ? "border-txt" : "border-transparent",
+              )}
+              onClick={() => useDesignerStore.getState().updateGroup(groupId, { color })}
+            />
+          ))}
+        </div>
+      </div>
+      {!readOnly && (
+        <button
+          type="button"
+          className="font-mono text-[.7rem] border border-accent-red/40 text-accent-red rounded px-2 py-1 bg-transparent cursor-pointer"
+          onClick={() => useDesignerStore.getState().removeGroup(groupId)}
+        >
+          Delete group
+        </button>
+      )}
+    </div>
+  );
+}
+
+function MultiInspector({ keys, readOnly }: { keys: string[]; readOnly: boolean }) {
+  const tables = keys.filter((k) => !groupIdFromNode(k) && !k.startsWith("ghost:") && !k.startsWith("rpc."));
+  const groups = keys.map(groupIdFromNode).filter((id): id is string => !!id);
+  return (
+    <div className="flex flex-col gap-2">
+      <h3 className="font-mono text-[.8rem]">{keys.length} selected</h3>
+      <p className="font-mono text-[.7rem] text-txt-dim">
+        {tables.length} tables
+        {groups.length > 0 ? ` · ${groups.length} groups` : ""}
+      </p>
+      {!readOnly && tables.length > 0 && (
+        <button
+          type="button"
+          className="font-mono text-[.7rem] border border-accent-purple/40 text-accent-purple rounded px-2 py-1 bg-transparent cursor-pointer"
+          onClick={() => useDesignerStore.getState().groupFromSelection()}
+        >
+          Wrap in group
+        </button>
+      )}
+      {!readOnly && (
+        <button
+          type="button"
+          className="font-mono text-[.7rem] border border-accent-red/40 text-accent-red rounded px-2 py-1 bg-transparent cursor-pointer"
+          onClick={() => useDesignerStore.getState().deleteSelection()}
+        >
+          Delete selected
         </button>
       )}
     </div>

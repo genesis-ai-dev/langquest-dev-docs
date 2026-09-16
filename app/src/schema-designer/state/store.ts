@@ -19,6 +19,7 @@ import {
   removeTable,
   setPolicies,
   setRelationCardinality,
+  setTableDerivedFrom,
   setTableDoc,
   setTableRlsEnabled,
   setTriggers,
@@ -37,8 +38,31 @@ import {
 } from "../domain/project";
 import type { Cardinality, DbFunction, EnumType, Policy, Schema, Trigger } from "../domain/types";
 import { emptySchema, functionNodeKey } from "../domain/types";
-import { ensurePlaced, resolveLayout, withEdgeLayout, withEdgesStubbed, withNodeCollapsed, withNodePosition } from "../layout/resolve";
-import { emptyLayoutDoc, type EdgeLayout, type LayoutDoc, type ResolvedLayout, type XY } from "../layout/types";
+import {
+  allGroups,
+  ensurePlaced,
+  groupsOnStage,
+  nextGroupId,
+  normalizeLayout,
+  resolveLayout,
+  withEdgeLayout,
+  withEdgesStubbed,
+  withGroup,
+  withNodeCollapsed,
+  withNodePosition,
+  withNodePositions,
+  withoutGroup,
+} from "../layout/resolve";
+import {
+  emptyLayoutDoc,
+  GROUP_NODE_PREFIX,
+  groupIdFromNode,
+  type EdgeLayout,
+  type GroupLayout,
+  type LayoutDoc,
+  type ResolvedLayout,
+  type XY,
+} from "../layout/types";
 import {
   ConflictError,
   deleteFile,
@@ -58,7 +82,29 @@ export type Selection =
   | { kind: "relation"; key: string }
   | { kind: "function"; key: string }
   | { kind: "enum"; key: string }
-  | { kind: "ghost"; key: string };
+  | { kind: "ghost"; key: string }
+  | { kind: "group"; key: string }
+  | { kind: "multi"; keys: string[] };
+
+export function sameSelection(a: Selection | null, b: Selection | null): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.kind !== b.kind) return false;
+  if (a.kind === "multi" && b.kind === "multi") {
+    return a.keys.length === b.keys.length && a.keys.every((k, i) => k === b.keys[i]);
+  }
+  return "key" in a && "key" in b && a.key === b.key;
+}
+
+export function selectedNodeIds(selection: Selection | null): string[] {
+  if (!selection) return [];
+  if (selection.kind === "multi") return selection.keys;
+  if (selection.kind === "group") return [`${GROUP_NODE_PREFIX}${selection.key}`];
+  if (selection.kind === "table" || selection.kind === "ghost") return [selection.key];
+  if (selection.kind === "function") {
+    return [selection.key.startsWith("rpc.") ? selection.key : `rpc.${selection.key}`];
+  }
+  return [];
+}
 
 export interface DesignerState {
   manifest: StageManifest;
@@ -90,14 +136,20 @@ export interface DesignerState {
   editorOpen: boolean;
   inspectorOpen: boolean;
   migrationOpen: boolean;
+  editorWidth: number;
+  inspectorWidth: number;
+  layoutGesture: boolean;
+  viewCenter: XY | null;
 
   loadProject: () => Promise<void>;
   setAmlTextFromEditor: (text: string) => void;
   applySchema: (fn: (schema: Schema) => Schema) => void;
+  setViewCenter: (pos: XY) => void;
   addTableAt: (pos?: XY) => void;
   renameTable: (oldName: string, nextName: string) => boolean;
   removeTable: (name: string) => void;
   setTableDoc: (name: string, doc: string) => void;
+  setTableDerivedFrom: (name: string, source: string | null) => void;
   setTableRlsEnabled: (name: string, enabled: boolean) => void;
   setTriggers: (table: string, triggers: Trigger[]) => void;
   setPolicies: (table: string, policies: Policy[]) => void;
@@ -121,6 +173,11 @@ export interface DesignerState {
   removeEnum: (name: string) => void;
 
   moveNode: (nodeKey: string, pos: XY) => void;
+  moveNodes: (positions: Record<string, XY>) => void;
+  addGroup: (rect?: Partial<Pick<GroupLayout, "x" | "y" | "width" | "height" | "label" | "color">>) => void;
+  updateGroup: (id: string, patch: Partial<Omit<GroupLayout, "id">>) => void;
+  removeGroup: (id: string) => void;
+  groupFromSelection: () => void;
   setNodeCollapsed: (nodeKey: string, collapsed: boolean) => void;
   setEdgeLayout: (edgeKey: string, patch: EdgeLayout) => void;
   setEdgesStubbed: (edgeKeys: string[], stub: boolean) => void;
@@ -145,6 +202,10 @@ export interface DesignerState {
   setEditorOpen: (open: boolean) => void;
   setInspectorOpen: (open: boolean) => void;
   setMigrationOpen: (open: boolean) => void;
+  setEditorWidth: (width: number) => void;
+  setInspectorWidth: (width: number) => void;
+  beginLayoutGesture: () => void;
+  endLayoutGesture: () => void;
 
   keepMine: (path: string) => Promise<void>;
   reloadFromDisk: (path: string) => Promise<void>;
@@ -175,6 +236,36 @@ function setPanelFlag(key: string, open: boolean) {
   } catch {
     /* ignore */
   }
+}
+
+const EDITOR_W_KEY = "lq-designer-editor-w";
+const INSPECTOR_W_KEY = "lq-designer-inspector-w";
+
+function panelSize(key: string, fallback: number): number {
+  try {
+    const n = Number(localStorage.getItem(key));
+    if (!Number.isFinite(n)) return fallback;
+    return Math.min(720, Math.max(180, n));
+  } catch {
+    return fallback;
+  }
+}
+
+function setPanelSize(key: string, value: number) {
+  try {
+    localStorage.setItem(key, String(value));
+  } catch {
+    /* ignore */
+  }
+}
+
+function clampPanelWidth(width: number): number {
+  return Math.min(720, Math.max(180, Math.round(width)));
+}
+
+function placeInView(center: XY | null, width: number, height: number): XY {
+  if (!center) return { x: 80, y: 80 };
+  return { x: center.x - width / 2, y: center.y - height / 2 };
 }
 
 function stageOrder(manifest: StageManifest): string[] {
@@ -208,11 +299,16 @@ function parseLayout(text: string): LayoutDoc {
   try {
     const parsed = JSON.parse(text) as LayoutDoc;
     if (parsed?.version !== 1) return emptyLayoutDoc();
-    return {
+    return normalizeLayout({
       version: 1,
-      base: { nodes: parsed.base?.nodes ?? {}, edges: parsed.base?.edges ?? {} },
+      base: {
+        nodes: parsed.base?.nodes ?? {},
+        edges: parsed.base?.edges ?? {},
+        groups: parsed.base?.groups ?? {},
+      },
       stages: parsed.stages ?? {},
-    };
+      groups: parsed.groups ?? {},
+    });
   } catch {
     return emptyLayoutDoc();
   }
@@ -223,7 +319,7 @@ export function resolvedFor(
   manifest: StageManifest,
   stageId: string | null,
 ): ResolvedLayout {
-  if (!stageId) return { nodes: {}, edges: {} };
+  if (!stageId) return { nodes: {}, edges: {}, groups: {} };
   return resolveLayout(layoutDoc, stageOrder(manifest), stageId);
 }
 
@@ -396,6 +492,10 @@ export const useDesignerStore = create<DesignerState>()(
         editorOpen: panelFlag("lq-designer-editor", true),
         inspectorOpen: panelFlag("lq-designer-inspector", true),
         migrationOpen: panelFlag("lq-designer-migration", true),
+        editorWidth: panelSize(EDITOR_W_KEY, 380),
+        inspectorWidth: panelSize(INSPECTOR_W_KEY, 300),
+        layoutGesture: false,
+        viewCenter: null,
 
         loadProject: async () => {
           try {
@@ -481,7 +581,7 @@ export const useDesignerStore = create<DesignerState>()(
           applyOp((s) => addTable(s));
           const created = get().schema?.tables.find((t) => !before.has(t.name));
           if (!created) return;
-          const at = pos ?? { x: 80, y: 80 };
+          const at = pos ?? placeInView(get().viewCenter, 240, 140);
           saveLayout(
             withNodePosition(get().layoutDoc, stageOrder(get().manifest), activeStageId, created.name, at),
           );
@@ -502,6 +602,7 @@ export const useDesignerStore = create<DesignerState>()(
 
         removeTable: (name) => applyOp((s) => removeTable(s, name)),
         setTableDoc: (name, doc) => applyOp((s) => setTableDoc(s, name, doc)),
+        setTableDerivedFrom: (name, source) => applyOp((s) => setTableDerivedFrom(s, name, source)),
         setTableRlsEnabled: (name, enabled) => applyOp((s) => setTableRlsEnabled(s, name, enabled)),
         setTriggers: (table, triggers) => applyOp((s) => setTriggers(s, table, triggers)),
         setPolicies: (table, policies) => applyOp((s) => setPolicies(s, table, policies)),
@@ -525,9 +626,104 @@ export const useDesignerStore = create<DesignerState>()(
         removeEnum: (name) => applyOp((s) => removeEnum(s, name)),
 
         moveNode: (nodeKey, pos) => {
+          get().moveNodes({ [nodeKey]: pos });
+        },
+        moveNodes: (positions) => {
           const { layoutDoc, manifest, activeStageId, readOnly } = get();
           if (!activeStageId || readOnly) return;
-          saveLayout(withNodePosition(layoutDoc, stageOrder(manifest), activeStageId, nodeKey, pos));
+          const order = stageOrder(manifest);
+          const first = order[0] ?? null;
+          const tablePos: Record<string, XY> = {};
+          let next = layoutDoc;
+          for (const [key, pos] of Object.entries(positions)) {
+            const groupId = groupIdFromNode(key);
+            if (groupId) {
+              const cur = groupsOnStage(next, first, activeStageId)[groupId];
+              if (cur) next = withGroup(next, order, activeStageId, { ...cur, x: pos.x, y: pos.y });
+              continue;
+            }
+            if (key.startsWith("ghost:")) continue;
+            tablePos[key] = pos;
+          }
+          if (Object.keys(tablePos).length > 0) {
+            next = withNodePositions(next, order, activeStageId, tablePos);
+          }
+          if (next !== layoutDoc) saveLayout(next);
+        },
+        addGroup: (rect = {}) => {
+          const { layoutDoc, manifest, activeStageId, readOnly } = get();
+          if (readOnly || !activeStageId) return;
+          const order = stageOrder(manifest);
+          const id = nextGroupId(allGroups(layoutDoc));
+          const width = rect.width ?? 320;
+          const height = rect.height ?? 200;
+          const fallback = placeInView(get().viewCenter, width, height);
+          const group: GroupLayout = {
+            id,
+            label: rect.label ?? "Group",
+            color: rect.color ?? "purple",
+            x: rect.x ?? fallback.x,
+            y: rect.y ?? fallback.y,
+            width,
+            height,
+          };
+          saveLayout(withGroup(layoutDoc, order, activeStageId, group));
+          set({ selected: { kind: "group", key: id } });
+        },
+        updateGroup: (id, patch) => {
+          const { layoutDoc, manifest, activeStageId, readOnly } = get();
+          if (readOnly || !activeStageId) return;
+          const order = stageOrder(manifest);
+          const cur = groupsOnStage(layoutDoc, order[0] ?? null, activeStageId)[id];
+          if (!cur) return;
+          saveLayout(withGroup(layoutDoc, order, activeStageId, { ...cur, ...patch }));
+        },
+        removeGroup: (id) => {
+          const { layoutDoc, manifest, activeStageId, readOnly, selected } = get();
+          if (readOnly || !activeStageId) return;
+          const next = withoutGroup(layoutDoc, stageOrder(manifest), activeStageId, id);
+          if (next === layoutDoc) return;
+          saveLayout(next);
+          if (selected?.kind === "group" && selected.key === id) set({ selected: null });
+        },
+        groupFromSelection: () => {
+          const { selected, layoutDoc, manifest, activeStageId, readOnly } = get();
+          if (readOnly || !activeStageId) return;
+          const keys =
+            selected?.kind === "multi"
+              ? selected.keys
+              : selected?.kind === "table" || selected?.kind === "function"
+                ? selectedNodeIds(selected)
+                : [];
+          const memberKeys = keys.filter((k) => !groupIdFromNode(k) && !k.startsWith("ghost:"));
+          if (memberKeys.length === 0) {
+            get().addGroup();
+            return;
+          }
+          const resolved = resolveLayout(layoutDoc, stageOrder(manifest), activeStageId);
+          let minX = Infinity;
+          let minY = Infinity;
+          let maxX = -Infinity;
+          let maxY = -Infinity;
+          for (const key of memberKeys) {
+            const n = resolved.nodes[key];
+            if (!n) continue;
+            minX = Math.min(minX, n.x);
+            minY = Math.min(minY, n.y);
+            maxX = Math.max(maxX, n.x + 260);
+            maxY = Math.max(maxY, n.y + 180);
+          }
+          if (!Number.isFinite(minX)) {
+            get().addGroup();
+            return;
+          }
+          const pad = 36;
+          get().addGroup({
+            x: minX - pad,
+            y: minY - pad - 20,
+            width: maxX - minX + pad * 2,
+            height: maxY - minY + pad * 2 + 20,
+          });
         },
         setNodeCollapsed: (nodeKey, collapsed) => {
           const { layoutDoc, manifest, activeStageId, readOnly } = get();
@@ -669,14 +865,42 @@ export const useDesignerStore = create<DesignerState>()(
         },
 
         setSelected: (sel) => {
-          const cur = get().selected;
-          if (cur?.kind === sel?.kind && cur?.key === sel?.key) return;
+          if (sameSelection(get().selected, sel)) return;
           set({ selected: sel });
         },
 
         deleteSelection: () => {
           const { selected, readOnly } = get();
           if (!selected || readOnly) return;
+          if (selected.kind === "group") {
+            get().removeGroup(selected.key);
+            return;
+          }
+          if (selected.kind === "multi") {
+            const groupIds = selected.keys.map(groupIdFromNode).filter((id): id is string => !!id);
+            const schemaKeys = selected.keys.filter((k) => !groupIdFromNode(k) && !k.startsWith("ghost:"));
+            if (schemaKeys.length > 0) {
+              applyOp((s) => {
+                let next = s;
+                for (const key of schemaKeys) {
+                  if (key.startsWith("rpc.")) next = removeFunction(next, key.slice(4));
+                  else next = removeTable(next, key);
+                }
+                return next;
+              });
+            }
+            if (groupIds.length > 0) {
+              const { layoutDoc, manifest, activeStageId } = get();
+              if (activeStageId) {
+                let next = layoutDoc;
+                const order = stageOrder(manifest);
+                for (const id of groupIds) next = withoutGroup(next, order, activeStageId, id);
+                if (next !== layoutDoc) saveLayout(next);
+              }
+            }
+            set({ selected: null });
+            return;
+          }
           if (selected.kind === "table") applyOp((s) => removeTable(s, selected.key));
           else if (selected.kind === "function") applyOp((s) => removeFunction(s, selected.key));
           else if (selected.kind === "enum") applyOp((s) => removeEnum(s, selected.key));
@@ -710,6 +934,23 @@ export const useDesignerStore = create<DesignerState>()(
         setMigrationOpen: (open) => {
           setPanelFlag("lq-designer-migration", open);
           set({ migrationOpen: open });
+        },
+        setEditorWidth: (width) => {
+          const next = clampPanelWidth(width);
+          setPanelSize(EDITOR_W_KEY, next);
+          set({ editorWidth: next });
+        },
+        setInspectorWidth: (width) => {
+          const next = clampPanelWidth(width);
+          setPanelSize(INSPECTOR_W_KEY, next);
+          set({ inspectorWidth: next });
+        },
+        beginLayoutGesture: () => set({ layoutGesture: true }),
+        endLayoutGesture: () => set({ layoutGesture: false }),
+        setViewCenter: (pos) => {
+          const cur = get().viewCenter;
+          if (cur && Math.abs(cur.x - pos.x) < 1 && Math.abs(cur.y - pos.y) < 1) return;
+          set({ viewCenter: pos });
         },
 
         keepMine: async (path) => {

@@ -22,6 +22,7 @@ const ENTITY_CONSUMED = new Set([
   "rls",
   "rlsEnabled",
   "renamedFrom",
+  "newTable",
   "kind",
   "returns",
   "security",
@@ -110,6 +111,7 @@ function mapTable(
     name: entity.name,
     doc: entity.doc,
     renamedFrom: typeof renamedFrom === "string" ? renamedFrom : undefined,
+    newTable: isRlsEnabled(extra.newTable) || undefined,
     rlsEnabled: isRlsEnabled(extra.rlsEnabled),
     fields: (entity.attrs ?? []).map((attr) => mapField(attr, pkNames)),
     triggers,
@@ -199,6 +201,7 @@ function tableToEntity(table: Table): Entity {
   const extra: ExtraProps = { ...(table.extras ?? {}) };
   if (table.rlsEnabled) extra.rlsEnabled = null;
   if (table.renamedFrom) extra.renamedFrom = table.renamedFrom;
+  if (table.newTable) extra.newTable = null;
   if (table.triggers.length) extra.triggers = table.triggers.map(serializeTrigger);
   if (table.policies.length) extra.rls = table.policies.map(serializePolicy);
   return {

@@ -59,6 +59,8 @@ body {
   --xy-node-boxshadow-default: none;
   --xy-background-color: var(--color-bg);
   --xy-node-color: inherit;
+  --xy-selection-background-color: color-mix(in srgb, var(--color-accent-purple) 16%, transparent);
+  --xy-selection-border: 1px solid var(--color-accent-purple);
 }
 
 .react-flow__node {

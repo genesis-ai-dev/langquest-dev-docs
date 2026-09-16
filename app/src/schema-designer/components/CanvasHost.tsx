@@ -7,6 +7,7 @@ import {
   useEdgesState,
   useNodesState,
   useReactFlow,
+  SelectionMode,
   type Connection,
   type Edge,
   type EdgeTypes,
@@ -18,24 +19,17 @@ import { useEffect, useRef } from "react";
 import { cn } from "../../cn";
 import { useTheme } from "../../components/ThemeProvider";
 import { buildFlow } from "../flow/buildFlow";
-import type { Selection } from "../state/store";
-import { diffFor, resolvedFor, useDesignerStore } from "../state/store";
+import { groupIdFromNode } from "../layout/types";
+import { selectedNodeIds, useDesignerStore } from "../state/store";
+import { diffFor, resolvedFor } from "../state/store";
 import { FunctionNode } from "./FunctionNode";
+import { GroupNode } from "./GroupNode";
 import { RelationEdge } from "./RelationEdge";
 import { TableNode } from "./TableNode";
 
-const nodeTypes: NodeTypes = { tableNode: TableNode, functionNode: FunctionNode };
+const nodeTypes: NodeTypes = { tableNode: TableNode, functionNode: FunctionNode, groupNode: GroupNode };
 const edgeTypes: EdgeTypes = { relationEdge: RelationEdge };
 const FIT_VIEW_OPTIONS = { padding: 0.15 };
-
-function selectedNodeId(selection: Selection | null): string | null {
-  if (!selection) return null;
-  if (selection.kind === "table" || selection.kind === "ghost") return selection.key;
-  if (selection.kind === "function") {
-    return selection.key.startsWith("rpc.") ? selection.key : `rpc.${selection.key}`;
-  }
-  return null;
-}
 
 /** Keep React Flow's measured size / drag flags when the store rebuilds node data. */
 function mergeFlowNodes(current: Node[], next: Node[]): Node[] {
@@ -51,9 +45,10 @@ function mergeFlowNodes(current: Node[], next: Node[]): Node[] {
     const out: Node = {
       ...n,
       measured: p.measured,
-      width: p.width,
-      height: p.height,
+      width: n.width ?? p.width,
+      height: n.height ?? p.height,
       dragging: p.dragging,
+      selected: p.selected,
     };
     if (
       p.selected === out.selected &&
@@ -61,7 +56,9 @@ function mergeFlowNodes(current: Node[], next: Node[]): Node[] {
       p.position.y === out.position.y &&
       p.data === out.data &&
       p.hidden === out.hidden &&
-      p.draggable === out.draggable
+      p.draggable === out.draggable &&
+      p.width === out.width &&
+      p.height === out.height
     ) {
       return p;
     }
@@ -97,10 +94,11 @@ function mergeFlowEdges(current: Edge[], next: Edge[]): Edge[] {
   return changed ? merged : current;
 }
 
-function applyNodeSelection(nodes: Node[], selectedId: string | null): Node[] {
+function applyNodeSelection(nodes: Node[], selectedIds: string[]): Node[] {
+  const ids = new Set(selectedIds);
   let changed = false;
   const next = nodes.map((n) => {
-    const selected = n.id === selectedId;
+    const selected = ids.has(n.id);
     if (n.selected === selected) return n;
     changed = true;
     return { ...n, selected };
@@ -191,6 +189,20 @@ function CanvasInner({
   const compareWith = useDesignerStore((s) => s.compareWith);
   const parsePending = useDesignerStore((s) => s.parsePending);
   const parseErrors = useDesignerStore((s) => s.parseErrors);
+  const layoutGesture = useDesignerStore((s) => s.layoutGesture);
+  const paneRef = useRef<HTMLDivElement>(null);
+
+  function publishViewCenter() {
+    if (locked) return;
+    const el = paneRef.current;
+    if (!el) return;
+    const box = el.getBoundingClientRect();
+    const pos = rfRef.current.screenToFlowPosition({
+      x: box.left + box.width / 2,
+      y: box.top + box.height / 2,
+    });
+    useDesignerStore.getState().setViewCenter(pos);
+  }
 
   const schema = schemaOverride !== undefined ? schemaOverride : storeSchema;
   const prevSchema = prevOverride !== undefined ? prevOverride : storePrev;
@@ -235,7 +247,7 @@ function CanvasInner({
   const focusRequest = useDesignerStore((s) => s.focusRequest);
 
   useEffect(() => {
-    if (draggingRef.current) return;
+    if (draggingRef.current || layoutGesture) return;
     setNodes((current) => mergeFlowNodes(current, built.nodes));
     setEdges((current) => mergeFlowEdges(current, built.edges));
     // built.nodes/edges are new arrays each render; store inputs above are the real deps.
@@ -257,15 +269,16 @@ function CanvasInner({
     prevOverride,
     layoutStageId,
     prevLayoutStageId,
+    layoutGesture,
     setNodes,
     setEdges,
   ]);
 
   useEffect(() => {
     applyingSelection.current = true;
-    const nodeId = selectedNodeId(selection);
+    const nodeIds = selectedNodeIds(selection);
     const edgeId = selection?.kind === "relation" ? selection.key : null;
-    setNodes((current) => applyNodeSelection(current, nodeId));
+    setNodes((current) => applyNodeSelection(current, nodeIds));
     setEdges((current) => applyEdgeSelection(current, edgeId));
     const id = requestAnimationFrame(() => {
       applyingSelection.current = false;
@@ -300,7 +313,10 @@ function CanvasInner({
   const invalid = parseErrors.some((e) => e.severity === "error");
 
   return (
-    <div className={cn("flex-1 min-h-0 relative", (dimmed || parsePending || invalid) && "opacity-80")}>
+    <div
+      ref={paneRef}
+      className={cn("flex-1 min-h-0 relative", (dimmed || parsePending || invalid) && "opacity-80")}
+    >
       {(parsePending || invalid) && (
         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 font-mono text-[.68rem] text-txt-dim bg-panel border border-border rounded-md px-2 py-1">
           {invalid ? "AML has errors — canvas shows last valid schema" : "editing…"}
@@ -314,9 +330,13 @@ function CanvasInner({
         onNodeDragStart={() => {
           draggingRef.current = true;
         }}
-        onNodeDragStop={(_e, node) => {
-          const key = node.id.startsWith("ghost:") ? null : node.id;
-          if (key) useDesignerStore.getState().moveNode(key, node.position);
+        onNodeDragStop={(_e, _node, dragged) => {
+          const positions: Record<string, { x: number; y: number }> = {};
+          for (const n of dragged) {
+            if (n.id.startsWith("ghost:")) continue;
+            positions[n.id] = n.position;
+          }
+          if (Object.keys(positions).length > 0) useDesignerStore.getState().moveNodes(positions);
           draggingRef.current = false;
         }}
         onConnect={(c: Connection) => {
@@ -331,13 +351,20 @@ function CanvasInner({
         }}
         onSelectionChange={({ nodes: ns, edges: es }) => {
           if (applyingSelection.current || draggingRef.current) return;
-          if (es[0]) {
+          if (ns.length > 1) {
+            useDesignerStore.getState().setSelected({ kind: "multi", keys: ns.map((n) => n.id) });
+            return;
+          }
+          if (es[0] && ns.length === 0) {
             useDesignerStore.getState().setSelected({ kind: "relation", key: es[0].id });
             return;
           }
           if (ns[0]) {
             const id = ns[0].id;
-            if (id.startsWith("ghost:")) {
+            const groupId = groupIdFromNode(id);
+            if (groupId) {
+              useDesignerStore.getState().setSelected({ kind: "group", key: groupId });
+            } else if (id.startsWith("ghost:")) {
               useDesignerStore.getState().setSelected({ kind: "ghost", key: id });
             } else if (id.startsWith("rpc.")) {
               useDesignerStore.getState().setSelected({ kind: "function", key: id.slice(4) });
@@ -355,10 +382,16 @@ function CanvasInner({
         proOptions={{ hideAttribution: true }}
         minZoom={0.2}
         maxZoom={2}
+        selectionOnDrag
+        selectionMode={SelectionMode.Partial}
+        panOnDrag={[1]}
         panOnScroll
+        zoomOnScroll={false}
         nodesDraggable={!locked && !readOnly}
         nodesConnectable={!locked && !readOnly}
         elementsSelectable
+        onInit={publishViewCenter}
+        onMove={publishViewCenter}
       >
         <Background />
         <Controls />

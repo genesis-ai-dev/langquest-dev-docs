@@ -26,7 +26,11 @@ function policyKey(p: Policy): string {
   return `${p.command}${p.role ? ` to ${p.role}` : ""}: ${p.using ?? ""}${p.check ? ` check ${p.check}` : ""}`;
 }
 
-function matchByName<T extends { name: string; renamedFrom?: string }>(
+function isForcedNew(item: { newTable?: boolean }): boolean {
+  return item.newTable === true;
+}
+
+function matchByName<T extends { name: string; renamedFrom?: string; newTable?: boolean }>(
   before: T[],
   after: T[],
 ): Array<{ before?: T; after?: T; kind: ChangeKind }> {
@@ -34,6 +38,10 @@ function matchByName<T extends { name: string; renamedFrom?: string }>(
   const pairs: Array<{ before?: T; after?: T; kind: ChangeKind }> = [];
 
   for (const item of after) {
+    if (isForcedNew(item)) {
+      pairs.push({ after: item, kind: "added" });
+      continue;
+    }
     const renameIdx = item.renamedFrom
       ? before.findIndex((b, i) => !usedBefore.has(i) && b.name === item.renamedFrom)
       : -1;

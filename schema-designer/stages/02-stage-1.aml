@@ -142,18 +142,6 @@ languoid
   last_updated "timestamp with time zone"
   creator_id uuid nullable -> profile(id)
 
-languoid_alias
-  id uuid pk
-  subject_languoid_id uuid -> languoid(id)
-  label_languoid_id uuid -> languoid(id)
-  name text
-  source_names "text[]"
-  active boolean
-  download_profiles "text[]" nullable
-  created_at "timestamp with time zone"
-  last_updated "timestamp with time zone"
-  creator_id uuid nullable -> profile(id)
-
 languoid_link_suggestion
   id uuid pk
   languoid_id uuid -> languoid(id)

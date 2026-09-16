@@ -11,6 +11,8 @@ export interface Table {
   name: string;
   doc?: string;
   renamedFrom?: string;
+  /** Explicitly not derived from the previous-stage table of the same name. */
+  newTable?: boolean;
   rlsEnabled: boolean;
   fields: Field[];
   triggers: Trigger[];

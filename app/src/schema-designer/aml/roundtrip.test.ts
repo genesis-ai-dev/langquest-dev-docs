@@ -8,6 +8,7 @@ const rich: Schema = {
       name: "quest",
       doc: "a quest node",
       renamedFrom: "old_quest",
+      newTable: true,
       rlsEnabled: true,
       fields: [
         { name: "id", type: "uuid", nullable: false, pk: true },

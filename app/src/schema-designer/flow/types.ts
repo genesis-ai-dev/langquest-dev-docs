@@ -1,6 +1,6 @@
 import type { ChangeKind, FieldDiff, TableDiff } from "../diff/types";
 import type { Cardinality, DbFunction, Table } from "../domain/types";
-import type { XY } from "../layout/types";
+import type { GroupColor, XY } from "../layout/types";
 
 export interface FkRef {
   edgeKey: string;
@@ -29,6 +29,12 @@ export interface FunctionNodeData extends Record<string, unknown> {
   fn: DbFunction;
   collapsed: boolean;
   diffKind?: ChangeKind;
+  readOnly: boolean;
+}
+
+export interface GroupNodeData extends Record<string, unknown> {
+  label: string;
+  color: GroupColor;
   readOnly: boolean;
 }
 

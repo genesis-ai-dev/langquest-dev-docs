@@ -7,7 +7,9 @@ import {
   removeField,
   removeTable,
   renameTable,
+  setTableDerivedFrom,
   stripRenamedFrom,
+  tableDerivedFrom,
   updateField,
 } from "./operations";
 import { emptySchema } from "./types";
@@ -88,6 +90,21 @@ describe("domain operations", () => {
     const next = importTables(emptySchema(), source, ["asset"]);
     expect(next.tables.map((t) => t.name)).toEqual(["asset"]);
     expect(next.relations).toHaveLength(0);
+  });
+
+  it("records lineage to a previous-stage table or marks a table as new", () => {
+    let schema = addTable(emptySchema(), "asset");
+    expect(tableDerivedFrom(schema.tables[0], ["asset"])).toBe("asset");
+    schema = setTableDerivedFrom(schema, "asset", null);
+    expect(schema.tables[0].newTable).toBe(true);
+    expect(tableDerivedFrom(schema.tables[0], ["asset"])).toBeNull();
+    schema = setTableDerivedFrom(schema, "asset", "quest");
+    expect(schema.tables[0].renamedFrom).toBe("quest");
+    expect(schema.tables[0].newTable).toBeUndefined();
+    expect(tableDerivedFrom(schema.tables[0], ["quest", "profile"])).toBe("quest");
+    schema = setTableDerivedFrom(schema, "asset", "asset");
+    expect(schema.tables[0].renamedFrom).toBeUndefined();
+    expect(tableDerivedFrom(schema.tables[0], ["asset"])).toBe("asset");
   });
 
   it("tracks field renames and strips them on duplicate", () => {

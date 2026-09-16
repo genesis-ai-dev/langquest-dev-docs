@@ -49,6 +49,9 @@ export function DesignerToolbar() {
       {!readOnly && (
         <>
           <HeaderButton onClick={() => useDesignerStore.getState().addTableAt()}>+ Table</HeaderButton>
+          <HeaderButton onClick={() => useDesignerStore.getState().groupFromSelection()}>
+            + Group
+          </HeaderButton>
           {canBorrow && (
             <HeaderButton onClick={() => setBorrowOpen(true)}>Borrow</HeaderButton>
           )}
